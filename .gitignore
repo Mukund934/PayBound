@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------------------
+# SECRETS — never commit. `.env.example` is the only env file that ships.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+*_secret*
+razorpay_keys*
+
+# ---------------------------------------------------------------------------
+# Spike / run output that may contain raw API responses with account detail.
+# Curated evidence is committed deliberately, by path, from `evidence/`.
+# ---------------------------------------------------------------------------
+scratch/
+spike_out/
+*.local.json
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# ---------------------------------------------------------------------------
+# Local databases and logs (the committed evidence lives in evidence/)
+# ---------------------------------------------------------------------------
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# ---------------------------------------------------------------------------
+# Editor / OS
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+
+# ---------------------------------------------------------------------------
+# Playwright
+# ---------------------------------------------------------------------------
+node_modules/
+playwright-report/
+test-results/
