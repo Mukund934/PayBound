@@ -1,0 +1,30 @@
+{
+  "comment": "sha256 over the canonically serialized tool registry. CI fails on drift. Regenerating this file is a deliberate act that invalidates every number produced under the previous surface.",
+  "sha256": "39ce85985bef0153995bd0b14a0b9d1b7851a1a1c4fbd55df57f7a076e000c82",
+  "tool_count": 3,
+  "tools": [
+    {
+      "moves_money": false,
+      "name": "get_case",
+      "params": [
+        "case_handle"
+      ]
+    },
+    {
+      "moves_money": true,
+      "name": "request_refund",
+      "params": [
+        "case_handle",
+        "reason_code"
+      ]
+    },
+    {
+      "moves_money": false,
+      "name": "escalate_to_human",
+      "params": [
+        "case_handle",
+        "reason_code"
+      ]
+    }
+  ]
+}

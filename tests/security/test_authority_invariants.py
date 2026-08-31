@@ -11,11 +11,13 @@ Coverage in this file:
   I-05  every error path fails closed
   I-06  live-key refusal, per request, before any socket
 
-I-04 (capability binding) and I-07 (at-most-once) are discharged next door in
-``test_capability_invariants.py``, against a real SQLite file.
+I-04 (capability binding) and I-07 (at-most-once) are discharged in
+``test_capability_invariants.py``, against a real SQLite file. I-01 (tool
+registry) and I-02 (credential unreachability) are in
+``test_tool_surface_invariants.py``.
 
-I-01, I-02, I-08, I-09 and I-10 attach to modules that do not exist yet (the
-tool registry, the refund adapter, the runner's guard). They are listed in
+I-08, I-09 and I-10 attach to modules that do not exist yet (the refund adapter
+and the runner's guard). They are listed in
 ``test_invariant_coverage_is_declared_not_assumed`` below so that the suite
 states its own incompleteness rather than implying full coverage by silence.
 """
@@ -318,11 +320,10 @@ def test_invariant_coverage_is_declared_not_assumed():
     """
     import importlib.util
 
-    # I-04 and I-07 moved off this list when paybound/ledger/ landed; their
-    # tests are in tests/security/test_capability_invariants.py.
+    # Discharged elsewhere as their modules landed:
+    #   I-04, I-07 -> tests/security/test_capability_invariants.py
+    #   I-01, I-02 -> tests/security/test_tool_surface_invariants.py
     pending = {
-        "I-01": "paybound.agent.tools",
-        "I-02": "paybound.agent.tools",
         "I-08": "paybound.rail.refunds",
         "I-09": "paybound.harness.guard",
         "I-10": "paybound.harness.guard",
