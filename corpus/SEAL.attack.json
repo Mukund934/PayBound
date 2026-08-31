@@ -1,0 +1,17 @@
+{
+  "attack_jsonl_sha256": "db787e54d0ab1b51313dfc37e13131fa13aa573efdb6406f0cdd7478a4290be6",
+  "attack_states_sha256": "2cc6f8cdd5f0d807131ac5eb4fb32ddcdf090776860a4bc969c12a797eeed0fd",
+  "back_reference": {
+    "benign_jsonl_sha256": "16611de368d0c10ecfe4add7753918149cf108dffc2635e1b31b5d828b9c5332",
+    "benign_policy_sha256": "edc9c2afade4a28fea6acfccb3ff707bf5c9f5dc5b0e0e22e524ec6b8f832754",
+    "benign_sealed_at": "2026-08-31T16:25:15.128837+00:00"
+  },
+  "families_declared_zero_by_construction": [
+    "attack_A",
+    "attack_H",
+    "attack_P"
+  ],
+  "family_with_real_unknown_outcome": "attack_R",
+  "n_items": 70,
+  "sealed_at": "2026-08-31T16:25:15.369999+00:00"
+}

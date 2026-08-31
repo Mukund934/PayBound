@@ -47,6 +47,21 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def write_lf(path: Path, text: str) -> None:
+    """Write with LF endings, always.
+
+    Third time newline translation has caused a bug here, so it gets a central
+    helper rather than a fourth call-site fix. Path.write_text applies
+    universal-newline translation, so on Windows every file it produces is
+    CRLF. Everything written by this script is either hashed or hashes
+    something else, so one carriage return silently changes an identity --
+    first the corpus bytes, then the git checkout, now the seal files.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline=chr(10)) as fh:
+        fh.write(text)
+
+
 def _source_sha(rel: str) -> str:
     return sha(REPO / rel)
 
@@ -82,7 +97,7 @@ def do_benign() -> int:
         },
         "attack_payloads_exist": False,
     }
-    SEAL.write_text(json.dumps(seal, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_lf(SEAL, json.dumps(seal, indent=2, sort_keys=True) + "\n")
     print(f"benign: {n} items -> {BENIGN.relative_to(REPO)}")
     print(f"        fixtures -> {STATES.relative_to(REPO)}")
     print(f"        seal -> {SEAL.relative_to(REPO)}  items_sha={items_sha[:16]}...")
@@ -109,15 +124,23 @@ def do_attacks() -> int:
 
     entries = build_attacks()
     n, items_sha = write_corpus(entries, path=ATTACK, states_path=ATTACK_STATES)
-    ATTACK_SEAL.write_text(
+    write_lf(
+        ATTACK_SEAL,
         json.dumps(
             {
                 "sealed_at": datetime.now(UTC).isoformat(),
                 "n_items": n,
                 "attack_jsonl_sha256": items_sha,
                 "attack_states_sha256": sha(ATTACK_STATES),
+                # Back-reference the corpus CONTENT, not the seal file's bytes.
+                # SEAL.json carries a `sealed_at` timestamp, so its byte hash
+                # changes on every rebuild even when the corpus is identical --
+                # which would make this reference break for a reason that has
+                # nothing to do with the corpus. The content hash is the stable
+                # identity, and it is what the ordering claim actually rests on.
                 "back_reference": {
-                    "benign_seal_sha256": sha(SEAL),
+                    "benign_jsonl_sha256": seal["benign_jsonl_sha256"],
+                    "benign_policy_sha256": seal["policy_sha256"],
                     "benign_sealed_at": seal["sealed_at"],
                 },
                 "families_declared_zero_by_construction": ["attack_A", "attack_H", "attack_P"],
@@ -127,7 +150,6 @@ def do_attacks() -> int:
             sort_keys=True,
         )
         + "\n",
-        encoding="utf-8",
     )
     print(f"attack: {n} items -> {ATTACK.relative_to(REPO)}")
     print(f"        seal -> {ATTACK_SEAL.relative_to(REPO)}  back-refs benign seal")

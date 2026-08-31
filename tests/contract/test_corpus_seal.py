@@ -136,16 +136,33 @@ def test_the_corpus_regenerates_byte_for_byte():
     """
     before = BENIGN.read_bytes()
     states_before = STATES.read_bytes()
-    proc = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "scripts" / "build_corpus.py"), "--benign"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        timeout=180,
-    )
-    assert proc.returncode == 0, proc.stderr
-    assert BENIGN.read_bytes() == before, "regeneration changed the corpus bytes"
-    assert STATES.read_bytes() == states_before, "regeneration changed the fixtures"
+    seal_before = SEAL.read_bytes()
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "build_corpus.py"), "--benign"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            timeout=180,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert BENIGN.read_bytes() == before, "regeneration changed the corpus bytes"
+        assert STATES.read_bytes() == states_before, "regeneration changed the fixtures"
+
+        # The seal's CONTENT reproduces; only `sealed_at` moves. Asserting the
+        # whole file were byte-identical would be asserting that a timestamp
+        # does not advance, which is a false claim about a true property.
+        after = json.loads(SEAL.read_text(encoding="utf-8"))
+        original = json.loads(seal_before.decode("utf-8"))
+        for key in set(original) | set(after):
+            if key == "sealed_at":
+                continue
+            assert after[key] == original[key], f"regeneration changed {key}"
+    finally:
+        # Restore, so running the suite never leaves the committed seal with a
+        # different timestamp than the one the attack seal back-references.
+        with SEAL.open("wb") as fh:
+            fh.write(seal_before)
 
 
 def test_attacks_are_refused_while_the_benign_seal_is_missing(tmp_path):
@@ -166,8 +183,11 @@ def test_the_attack_seal_back_references_the_benign_seal():
     """Git history proves the ordering; the back-reference makes it checkable
     from the artifacts alone."""
     attack_seal = json.loads((CORPUS / "SEAL.attack.json").read_text(encoding="utf-8"))
-    assert attack_seal["back_reference"]["benign_seal_sha256"] == _sha(SEAL)
-    assert attack_seal["back_reference"]["benign_sealed_at"] == _seal()["sealed_at"]
+    ref = attack_seal["back_reference"]
+    # Content identity, not the seal file's bytes: SEAL.json timestamps itself,
+    # so its byte hash moves on every rebuild while the corpus does not.
+    assert ref["benign_jsonl_sha256"] == _seal()["benign_jsonl_sha256"] == _sha(BENIGN)
+    assert ref["benign_policy_sha256"] == _seal()["policy_sha256"]
     assert attack_seal["families_declared_zero_by_construction"] == [
         "attack_A",
         "attack_H",
