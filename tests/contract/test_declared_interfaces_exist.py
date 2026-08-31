@@ -122,9 +122,45 @@ def test_every_command_the_readme_documents_exists():
     assert callable(main)
 
 
-def test_scripts_referenced_by_the_readme_exist():
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    for rel in set(re.findall(r"(scripts/[\w_]+\.py)", readme)):
-        assert (REPO_ROOT / rel).is_file(), f"README references {rel}, which does not exist"
-    for rel in set(re.findall(r"\[`?([A-Z_]+\.md)`?\]", readme)):
-        assert (REPO_ROOT / rel).is_file(), f"README links {rel}, which does not exist"
+DOCS = ("README.md", "AGENTS.md", "LIMITS.md", "PREREG.md", "docs/CITATIONS.md")
+
+
+@pytest.mark.parametrize("doc", DOCS)
+def test_every_path_a_document_references_exists(doc):
+    """Documentation is a promise. These assert the promise resolves.
+
+    Generalised from the README to every committed doc after AGENTS.md landed
+    referencing four test files and two scripts: a map that points at files
+    which have moved is worse than no map, because it is trusted.
+    """
+    path = REPO_ROOT / doc
+    if not path.is_file():
+        pytest.skip(f"{doc} not present")
+    text = path.read_text(encoding="utf-8")
+
+    patterns = (
+        r"(scripts/[\w_]+\.py)",
+        r"`(tests/[\w/]+\.py)`",
+        r"`(paybound/[\w/]+\.py)`",
+        r"\[`?([A-Z_]+\.md)`?\]",
+    )
+    for pattern in patterns:
+        for rel in sorted(set(re.findall(pattern, text))):
+            assert (REPO_ROOT / rel).is_file(), (
+                f"{doc} references {rel}, which does not exist"
+            )
+
+
+@pytest.mark.parametrize("doc", ("README.md", "AGENTS.md"))
+def test_every_pb_verb_a_document_names_actually_runs(doc):
+    path = REPO_ROOT / doc
+    if not path.is_file():
+        pytest.skip(f"{doc} not present")
+    text = path.read_text(encoding="utf-8")
+    verbs = set(re.findall(r"`pb (\w+)`", text)) | set(re.findall(r"^pb (\w+)", text, re.M))
+    for verb in sorted(verbs):
+        proc = subprocess.run(
+            [sys.executable, "-m", "paybound.cli", verb, "--help"],
+            capture_output=True, text=True, cwd=REPO_ROOT, timeout=120,
+        )
+        assert proc.returncode == 0, f"{doc} names `pb {verb}` but it does not run"
