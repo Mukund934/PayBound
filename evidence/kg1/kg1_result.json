@@ -1,0 +1,87 @@
+{
+  "started_at": "2026-08-31T09:38:03.659074+00:00",
+  "key_id_prefix": "rzp_test_TWJm...",
+  "C": {
+    "payment_id": "pay_TWKVnCHXugGcUo",
+    "c1": {
+      "status": 200,
+      "error": null,
+      "refund_id": "rfnd_TWKWib7mcdGJ8m",
+      "amount": 100,
+      "refund_status": "pending",
+      "receipt_roundtrip": true,
+      "notes_roundtrip": true
+    },
+    "c2": {
+      "status": 200,
+      "error": null,
+      "same_refund_id": true,
+      "verdict": "IDEMPOTENT_REPLAY"
+    },
+    "c3": {
+      "status": 409,
+      "error": "Different request with the same idempotency key has already been processed.",
+      "created_second_refund": false
+    },
+    "c4_lifecycle": [
+      {
+        "t_plus_s": 0,
+        "payment_status": "captured",
+        "amount_refunded": 100,
+        "refund_status": "partial"
+      },
+      {
+        "t_plus_s": 3,
+        "payment_status": "captured",
+        "amount_refunded": 100,
+        "refund_status": "partial"
+      },
+      {
+        "t_plus_s": 18,
+        "payment_status": "captured",
+        "amount_refunded": 100,
+        "refund_status": "partial"
+      }
+    ]
+  },
+  "D": {
+    "merge_semantics": "REPLACE",
+    "notes_after": {
+      "pb_c": "3"
+    },
+    "value_len_240": {
+      "status": 200,
+      "ok": true,
+      "error": null
+    },
+    "value_len_300": {
+      "status": 200,
+      "ok": true,
+      "error": null
+    },
+    "value_len_520": {
+      "status": 400,
+      "ok": false,
+      "error": "Notes value cannot be greater 512 characters"
+    }
+  },
+  "E": {
+    "count": 1,
+    "items": [
+      {
+        "id": "rfnd_TWKWib7mcdGJ8m",
+        "amount": 100,
+        "status": "processed",
+        "receipt": "pbr_01M1BJXQ4SZ4C347F0TJ5SEVXY",
+        "notes": {
+          "pb_trial": "kg1-c1"
+        },
+        "created_at": 1788169083
+      }
+    ],
+    "receipt_roundtrips": 1,
+    "notes_roundtrips": 1
+  },
+  "finished_at": "2026-08-31T09:38:30.623968+00:00",
+  "elapsed_seconds": 27
+}

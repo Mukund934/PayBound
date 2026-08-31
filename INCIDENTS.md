@@ -96,5 +96,66 @@ decoration* — reappearing one level down, inside an individual test. It was
 found by an unrelated lint-shaped test, which is an argument for having more of
 them rather than fewer.
 
+### 5.3 Five gates, each hiding the next, and one wrong diagnosis
+
+**Expected:** headless Playwright drives Razorpay Standard Checkout to a
+captured payment. The lock gates the whole corpus on this (risk R5) and budgets
+it at part of one hour.
+**Happened:** seven runs. Each failure exposed exactly one more gate:
+
+1. `prefill.contact` ignored -> a "Contact details" modal.
+2. Page-level selectors matched nothing, because checkout renders in an iframe.
+   The seeder logged *"no contact modal (prefill took)"* while a screenshot
+   showed the modal open. **A false negative that reads like a pass is worse
+   than a crash.**
+3. The modal rejected `9999999999`, then `9876543210`, as *"not a valid mobile
+   number"*. Both are well-formed Indian mobiles.
+4. Card fields are named `card.number`, not `card[number]`. Both the card number
+   and the contact field are `type=tel`, so an `input[type='tel']` fallback
+   silently drove the wrong field.
+5. `4111 1111 1111 1111` -> *"International cards are not supported."*
+6. A save-card upsell, then an OTP gate.
+
+**The wrong diagnosis:** at step 3 I concluded bot detection. The page loads
+PerimeterX, hCaptcha and Sardine, `navigator.webdriver` is `true`, and two
+independent surfaces — Standard Checkout and the Payment Link page on `rzp.io` —
+rejected the same valid number identically. That is a strong-looking case, and
+it was wrong. The actual cause was that both numbers I had tried are
+*obviously* fake and are blacklisted. A realistic number passed immediately, on
+both surfaces.
+
+**How I found it:** by preferring the cheaper hypothesis before acting on the
+expensive one. The bot-detection conclusion would have sent the project to its
+contingency ladder and cost the AI-buyer purchase leg, which is the one thing
+the lock marks uncuttable. The test that separated them cost one run.
+**Fix:** realistic mobile, domestic test card `5267 3181 8797 5449`, and the
+test OTP. `scripts/seed_one.py` and `scripts/pay_link.py`, screenshot per step.
+**What the number did afterwards:** the seeder went from 0 to a captured
+`pay_...` in one run, and R5 moved from Med/High to closed. The ~130-payment
+seed needs no human.
+**Lesson:** two independent surfaces failing identically felt like proof of a
+common upstream cause. It was proof of a common *input*. When the evidence for
+an expensive conclusion is "it fails the same way everywhere," check whether the
+thing held constant is the defect.
+
+### 5.4 KG-1 settled two assumptions the contract had backwards
+
+**Expected:** `PATCH /payments/:id` merges `notes` (the lock budgets against a
+15-key ceiling), and `amount_refunded` might lag `refund.status` badly enough
+that the aggregate bound could be beaten by two fast requests.
+**Happened:** `PATCH` is **REPLACE** — a second patch left only the new key. And
+`amount_refunded` incremented to 100 at **t+0s**, while the refund object was
+still `pending`, and held at t+3s and t+18s.
+**Found:** KG-1 blocks D and C4, against the real API.
+**Impact:** the merge concern is void; full-map writes were already the
+contract's rule and are now the *only* correct one. The lifecycle result is
+better than the conservative assumption: `amount_refunded` moves at refund
+*creation*, before completion, so it over-counts relative to settlement, which
+is the safe direction for a bound. `PaymentFacts` keeps summing the refunds
+collection anyway — the two now provably agree, so the conservative path costs
+one read and removes a dependency on undocumented timing.
+**Also settled:** the `notes` per-value ceiling is **512 characters**, stated by
+Razorpay's own error text, not 256 as assumed.
+
 <!-- Day 2 onward: append below. Do not edit earlier entries; if something turns
      out to be wrong, add a correcting entry and say so. -->

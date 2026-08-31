@@ -242,10 +242,35 @@ hosted** · GitHub Actions, two jobs (`check`, `verify`).
    strategy material is therefore *outside the repository tree entirely* rather than merely git-ignored —
    a stronger property than a `.gitignore` rule. **Improvement, not a deviation in substance.**
 
-**Assumptions still unverified (KG-1 exists to settle them):** refund creation works against `rzp_test_` keys ·
-no account-level refund gate on a fresh account · partial refunds supported on the seeded payment method ·
-idempotency replay semantics after completion · PATCH notes merge-vs-replace · when `amount_refunded`
-increments relative to `refund.status` · headless Playwright can drive Standard Checkout to capture.
+**KG-1 EXECUTED 31 Aug 2026 — GREEN. Every assumption below is now settled against the real API.** Raw
+evidence in `evidence/kg1/`.
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Refund creation against `rzp_test_` keys | **YES** | `rfnd_TWKWib7mcdGJ8m`, HTTP 200 |
+| Account-level refund gate | **NONE** on this fresh account | C1 |
+| Partial refund on the seeded method (card) | **YES** — ₹1.00 of ₹2,499.00 | C1 |
+| Byte-identical replay after completion | **Returns the SAME refund object.** No second refund | C2 |
+| Same idem key, changed body | **409**, no second refund — the catastrophic branch did not fire | C3 |
+| `amount_refunded` vs `refund.status` | Increments at **creation** (t+0s, while the refund is still `pending`) and holds | C4 |
+| PATCH `notes` semantics | **REPLACE**, not merge. The 15-key ceiling concern is void | D |
+| `notes` per-value ceiling | **512 characters**, per Razorpay's own error text — not 256 | D3 |
+| `receipt` and `notes` round-trip on `GET /payments/:id/refunds` | **BOTH.** Zero-labelling ground truth exists | E |
+| Headless capture (R5) | **YES**, fully automated: link → contact → domestic card → OTP → captured | `scripts/pay_link.py` |
+
+Two consequences worth stating because they change the contract rather than confirming it:
+
+1. **§5.3's `patch_payment_notes` "always full" rule is now the only correct rule**, not a defensive choice.
+2. **The aggregate bound may legally read `amount_refunded`** — it does not lag. `PaymentFacts` keeps summing
+   the refunds collection anyway: the two provably agree here, and summing removes a dependency on
+   undocumented timing for the price of one read.
+
+**Seeding note:** Standard Checkout could not be driven; the **Payment Link** hosted page could. QR codes and
+S2S payment creation both return "URL not found" on this account. The seeder therefore creates a Payment Link
+per order rather than an Order + Checkout. This is a mechanism change, not a scope change — the AI buyer still
+drives a real Razorpay purchase to a real captured payment, which is what the Track-01 second disjunct
+requires. Test instruments: mobile must be realistic (obviously-fake numbers are blacklisted), card must be
+**domestic** `5267 3181 8797 5449`, OTP `1234`.
 
 ---
 
@@ -358,8 +383,8 @@ records the result here and in `INCIDENTS.md`.
 
 ---
 
-**KG-1 status: NOT EXECUTED. Reason: no local credentials. Observed Razorpay failure: none.** The spike has
-been exercised against the real API far enough to confirm the transport, the auth header, the error parsing
-and the mode guard (a deliberately invalid test key returns a correctly parsed `401 Authentication failed`).
-It has never been run with valid keys, so it has never answered the question it exists to answer. Nothing
-about Razorpay's refund behaviour has been observed, and nothing may be claimed about it.
+**KG-1 status: EXECUTED 31 Aug 2026. GREEN on the kill question.** A refund object exists in Razorpay's
+ledger, created against test-mode keys, carrying a receipt this codebase minted:
+`rfnd_TWKWib7mcdGJ8m`, receipt `pbr_01M1BJXQ4SZ4C347F0TJ5SEVXY`, against `pay_TWKVnCHXugGcUo`
+(₹2,499.00 captured, ₹1.00 refunded). Raw evidence committed in `evidence/kg1/`. Section 12 records every
+answer. **R5 (headless capture) is closed** — the purchase leg runs end to end with no human in it.
