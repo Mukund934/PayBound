@@ -138,32 +138,64 @@ class Kleene(enum.Enum):
 
 
 class FulfilmentState(enum.StrEnum):
-    """Carrier-scan vocabulary.
+    """Carrier-scan vocabulary. Transcribed, with every deviation declared.
 
-    SOURCE NOT YET TRANSCRIBED. The architecture lock requires this vocabulary
-    to be transcribed from one published Indian carrier tracking API, cited by
-    URL and archive timestamp, so that *which reason classes become decidable at
-    which tier* is a fact about Indian logistics rather than about a fixture
-    file this project wrote. The member names below are the ones the lock names
-    in its clause table; the citation is an open task and **no URL is asserted
-    here, because a fabricated citation is worse than a missing one**.
+    Which refund reasons become decidable at which evidence tier has to be a
+    fact about Indian logistics rather than a fact about this repository. So
+    every member below is either a token published by a real carrier or
+    aggregator, or is explicitly marked derived.
 
-    See ``docs/CITATIONS.md``. This enum must not be sealed into the corpus
-    until that file names the carrier API and its archive timestamp.
+    **What could not be sourced, stated first.** There is no public Indian
+    carrier tracking *API* whose status vocabulary can be cited: Delhivery's
+    API reference is behind a login at ``ucp.delhivery.com/developer-portal``
+    and ``apidocs.shiprocket.in`` is a client-rendered shell. The sources below
+    are therefore *operator-facing* status vocabularies — weaker than an API
+    schema, and much stronger than an invented list. See ``docs/CITATIONS.md``
+    for URLs, retrieval dates and archive snapshots.
+
+    ============================== ==========================================
+    ``IN_TRANSIT``                 published: Shiprocket ``In-Transit:``
+    ``DELIVERED``                  published: Shiprocket ``Delivered:``
+    ``RTO_INITIATED``              published: Shiprocket ``RTO Initiated:``
+    ``UNDELIVERED_CONSIGNEE_REFUSED`` **declared conjunction** — see below
+    ``LOST``                       published: ClickPost ``16 Lost`` (terminal)
+    ``NOT_PICKED_UP``              **derived** — no carrier publishes it
+    ============================== ==========================================
+
+    ``UNDELIVERED_CONSIGNEE_REFUSED`` is a conjunction, not a token, and saying
+    so matters. Shiprocket's published ``Undelivered`` is a **superset** that
+    includes parcels in an active three-attempt reattempt cycle. A merchant who
+    maps it straight onto this member would put a parcel that is about to be
+    delivered into ``LEDGER_NONDELIVERY_STATES`` and authorise a full refund on
+    it. The intended composition is ``FailedDelivery`` **and** a
+    rejected-by-customer non-delivery code — refusal, not mere failure.
+
+    ``NOT_PICKED_UP`` is author-defined: everything before a pickup scan. No
+    source publishes "not dispatched" or any synonym. It is deliberately *not*
+    named after ClickPost's ``PickupPending``, because adopting a published
+    token for an aggregation the author invented is a subtler fabrication than
+    an obviously-derived name.
+
+    Positive records only
+    ---------------------
+    ``LEDGER_NONDELIVERY_STATES`` is the set that authorises ``NOT_DELIVERED``.
+    ``IN_TRANSIT`` is absent from it: a parcel in transit for three weeks is
+    indistinguishable, from the ledger, from a carrier whose webhook broke, and
+    an outage must not become a refund.
     """
 
-    NOT_DISPATCHED = "not_dispatched"
+    NOT_PICKED_UP = "not_picked_up"
     IN_TRANSIT = "in_transit"
     DELIVERED = "delivered"
     RTO_INITIATED = "rto_initiated"
-    LOST_IN_TRANSIT = "lost_in_transit"
+    LOST = "lost"
     UNDELIVERED_CONSIGNEE_REFUSED = "undelivered_consignee_refused"
 
 
 LEDGER_NONDELIVERY_STATES: Final[frozenset[FulfilmentState]] = frozenset(
     {
         FulfilmentState.RTO_INITIATED,
-        FulfilmentState.LOST_IN_TRANSIT,
+        FulfilmentState.LOST,
         FulfilmentState.UNDELIVERED_CONSIGNEE_REFUSED,
     }
 )
@@ -172,6 +204,15 @@ LEDGER_NONDELIVERY_STATES: Final[frozenset[FulfilmentState]] = frozenset(
 ``IN_TRANSIT`` is deliberately absent. A parcel that has been in transit for
 three weeks is indistinguishable, from the ledger, from a carrier whose webhook
 broke — and the second case must reach a human.
+
+**A published carrier-vocabulary defect that reaches this set.** Shiprocket
+publishes a single combined status, ``Lost/Damaged``, where ClickPost separates
+``16 Lost`` from ``17 Damaged``. On a Shiprocket-fed merchant, a *damaged*
+parcel therefore arrives here as ``LOST`` — authorising ``NOT_DELIVERED`` at
+the full payment amount for goods the customer is physically holding. This is
+not a PayBound schema choice; it is a defect in the published vocabulary, and it
+is a second bridge into the highest-paying clause. It is measured rather than
+assumed: ``LIMITS.md`` names it and the corpus carries items for it.
 """
 
 

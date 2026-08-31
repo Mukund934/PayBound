@@ -20,6 +20,7 @@ from collections.abc import Callable
 
 from paybound.core.types import (
     LEDGER_NONDELIVERY_STATES,
+    FulfilmentState,
     Kleene,
     PredicateResult,
     ReasonCode,
@@ -33,7 +34,7 @@ __all__ = [
     "is_later_of_duplicate_pair",
     "line_overcharged",
     "no_prior_refund_for",
-    "not_dispatched",
+    "not_picked_up",
     "nothing_refunded_yet",
     "order_status_paid",
     "positive_carrier_nondelivery_record",
@@ -230,20 +231,20 @@ def within_cancellation_window(s: TrustedState) -> PredicateResult:
     )
 
 
-def not_dispatched(s: TrustedState) -> PredicateResult:
+def not_picked_up(s: TrustedState) -> PredicateResult:
     state = s.fulfilment.state
     if state is None:
         return PredicateResult(
-            name="not_dispatched",
+            name="not_picked_up",
             source_field="fulfilment.state",
             observed=None,
             result=Kleene.UNKNOWN,
         )
     return PredicateResult(
-        name="not_dispatched",
+        name="not_picked_up",
         source_field="fulfilment.state",
         observed=str(state),
-        result=Kleene.of(state.value == "not_dispatched"),
+        result=Kleene.of(state is FulfilmentState.NOT_PICKED_UP),
     )
 
 

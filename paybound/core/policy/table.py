@@ -191,7 +191,7 @@ TABLE: Final[dict[ReasonCode, Clause]] = {
         tier="T1",
         preconditions=(
             ("within_cancellation_window", P.within_cancellation_window),
-            ("not_dispatched", P.not_dispatched),
+            ("not_picked_up", P.not_picked_up),
             ("nothing_refunded_yet", P.nothing_refunded_yet),
             ("single_capture_in_group", P.single_capture_in_group),
             ("group_not_settled", P.group_not_settled),

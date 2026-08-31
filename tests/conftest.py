@@ -109,7 +109,7 @@ def not_delivered_state(**overrides: object) -> TrustedState:
 
 def cancelled_in_window_state(**overrides: object) -> TrustedState:
     defaults: dict[str, object] = {
-        "fulfilment": Fulfilment(state=FulfilmentState.NOT_DISPATCHED),
+        "fulfilment": Fulfilment(state=FulfilmentState.NOT_PICKED_UP),
     }
     defaults.update(overrides)
     return state(**defaults)  # type: ignore[arg-type]
