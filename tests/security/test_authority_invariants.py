@@ -16,10 +16,13 @@ I-04 (capability binding) and I-07 (at-most-once) are discharged in
 registry) and I-02 (credential unreachability) are in
 ``test_tool_surface_invariants.py``.
 
-I-08, I-09 and I-10 attach to modules that do not exist yet (the refund adapter
-and the runner's guard). They are listed in
-``test_invariant_coverage_is_declared_not_assumed`` below so that the suite
-states its own incompleteness rather than implying full coverage by silence.
+I-08 (aggregate bound), I-09 (four-bucket accounting) and I-10 (the gate can go
+red) are in ``test_guard_invariants.py``, which includes the mutation test that
+deletes the bound and asserts the suite turns red.
+
+All ten invariants now have code. One half of one of them is still owed against
+the live API, and ``test_i08_live_half_is_still_owed`` says so explicitly rather
+than letting silence imply completeness.
 """
 
 from __future__ import annotations
@@ -321,13 +324,13 @@ def test_invariant_coverage_is_declared_not_assumed():
     import importlib.util
 
     # Discharged elsewhere as their modules landed:
-    #   I-04, I-07 -> tests/security/test_capability_invariants.py
     #   I-01, I-02 -> tests/security/test_tool_surface_invariants.py
-    pending = {
-        "I-08": "paybound.rail.refunds",
-        "I-09": "paybound.harness.guard",
-        "I-10": "paybound.harness.guard",
-    }
+    #   I-04, I-07 -> tests/security/test_capability_invariants.py
+    #   I-08, I-09, I-10 -> tests/security/test_guard_invariants.py
+    #
+    # All ten now have a module. What remains is stated in
+    # test_i08_live_half_is_still_owed below rather than by silence.
+    pending: dict[str, str] = {}
     still_missing = {
         inv: mod for inv, mod in pending.items() if importlib.util.find_spec(mod) is None
     }
@@ -336,3 +339,28 @@ def test_invariant_coverage_is_declared_not_assumed():
         f"test and remove it from this list. Newly available: "
         f"{set(pending) - set(still_missing)}"
     )
+
+
+def test_i08_live_half_is_still_owed():
+    """I-08 has two halves and only one is discharged offline.
+
+    The pure half — the bound refuses an overdraw — is tested in
+    ``test_guard_invariants.py``. The lock's discharging test is stronger: create
+    an out-of-band refund directly against Razorpay, then assert the pre-flight
+    read *sees it* and the next action is refused. That needs the live API and is
+    marked ``live``.
+
+    This test exists so the gap is stated rather than implied. It fails if the
+    live test disappears, which is the failure mode worth catching: a suite that
+    quietly loses its only end-to-end check of the bound.
+    """
+    from pathlib import Path
+
+    live = Path(__file__).with_name("test_aggregate_bound_live.py")
+    assert live.is_file(), (
+        "the live half of I-08 is missing. Either restore it or amend this test "
+        "to say what replaced it — do not let its absence pass silently."
+    )
+    src = live.read_text(encoding="utf-8")
+    assert "pytest.mark.live" in src
+    assert "out-of-band" in src

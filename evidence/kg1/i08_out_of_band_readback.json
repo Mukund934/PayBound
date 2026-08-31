@@ -1,0 +1,44 @@
+{
+  "count": 2,
+  "entity": "collection",
+  "items": [
+    {
+      "acquirer_data": {
+        "arn": "10000000000000"
+      },
+      "amount": 100,
+      "batch_id": null,
+      "created_at": 1788184767,
+      "currency": "INR",
+      "entity": "refund",
+      "id": "rfnd_TWOypP4lLU9Yg8",
+      "notes": {
+        "pb_out_of_band": "i08"
+      },
+      "payment_id": "pay_TWKVnCHXugGcUo",
+      "receipt": "pbr_01M1C1WB3DNS5XFZ6CRR994SZX",
+      "speed_processed": "normal",
+      "speed_requested": "normal",
+      "status": "processed"
+    },
+    {
+      "acquirer_data": {
+        "arn": "10000000000000"
+      },
+      "amount": 100,
+      "batch_id": null,
+      "created_at": 1788169083,
+      "currency": "INR",
+      "entity": "refund",
+      "id": "rfnd_TWKWib7mcdGJ8m",
+      "notes": {
+        "pb_trial": "kg1-c1"
+      },
+      "payment_id": "pay_TWKVnCHXugGcUo",
+      "receipt": "pbr_01M1BJXQ4SZ4C347F0TJ5SEVXY",
+      "speed_processed": "normal",
+      "speed_requested": "normal",
+      "status": "processed"
+    }
+  ]
+}
