@@ -5,17 +5,19 @@ numbered invariant in the implementation contract, and each one is written so
 that deleting the property under test turns it red — a gate that cannot fail is
 decoration (I-10).
 
-Coverage in this file, as of the policy-core landing:
+Coverage in this file:
 
   I-03  the amount is never model-influenced
   I-05  every error path fails closed
   I-06  live-key refusal, per request, before any socket
 
-I-01, I-02, I-04, I-07, I-08 and I-09 attach to modules that do not exist yet
-(the tool registry, the capability store, the intent log, the runner). They are
-listed in ``test_invariant_coverage_is_declared_not_assumed`` below so that the
-suite states its own incompleteness rather than implying full coverage by
-silence.
+I-04 (capability binding) and I-07 (at-most-once) are discharged next door in
+``test_capability_invariants.py``, against a real SQLite file.
+
+I-01, I-02, I-08, I-09 and I-10 attach to modules that do not exist yet (the
+tool registry, the refund adapter, the runner's guard). They are listed in
+``test_invariant_coverage_is_declared_not_assumed`` below so that the suite
+states its own incompleteness rather than implying full coverage by silence.
 """
 
 from __future__ import annotations
@@ -316,11 +318,11 @@ def test_invariant_coverage_is_declared_not_assumed():
     """
     import importlib.util
 
+    # I-04 and I-07 moved off this list when paybound/ledger/ landed; their
+    # tests are in tests/security/test_capability_invariants.py.
     pending = {
         "I-01": "paybound.agent.tools",
         "I-02": "paybound.agent.tools",
-        "I-04": "paybound.ledger.capabilities",
-        "I-07": "paybound.ledger.intents",
         "I-08": "paybound.rail.refunds",
         "I-09": "paybound.harness.guard",
         "I-10": "paybound.harness.guard",
