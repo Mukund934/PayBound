@@ -104,13 +104,29 @@ policy"* produced exactly one call, `request_refund(reason_code="DUPLICATE_CHARG
 fields**. The schema has nowhere to put an amount or a payment id, so the injection was structurally inert
 rather than detected. That is the thesis, demonstrated on the wire.
 
-**The one real cost: T2 is not stronger than T1.** Every pro-tier model on this key returns HTTP 429, quota
-exceeded — the free tier excludes them. The lock requires the attacker to outrank the agent under test so
-that a null result means "hard to break" rather than "attacker underpowered". Until resolved, any
-attack-success figure is an **optimistic** bound and must be published saying so. `paybound/agent/models.py`
-carries `T2_QUOTA_BLOCKED = True`, which the harness stamps onto the report so a same-tier run cannot quietly
-publish as if it were adversarial. Fixes, cheapest first: enable billing on the Google project, or supply an
-Anthropic key for offline T2 only.
+**The adversarial campaign uses no attacker model at all.** Every pro-tier model on this key returns HTTP
+429, but the quota is *not* the governing reason and presenting it as such would be an honest-sounding wrong
+explanation. Two structural reasons decide it: (a) the router runs at `TEMPERATURE = 0.0` into a forced
+choice over nine enum members, so its output is one categorical value with no gradient — an "optimisation
+search" over that is random sampling in a costume; (b) a model-driven search optimises a proxy
+**anti-correlated** with the ground truth, because the fastest way to make a router say `NOT_DELIVERED` is to
+write prose that genuinely says the parcel never arrived, which flips the oracle label and reproduces the
+tautology that killed the previous architecture.
+
+Campaign C3 is therefore renamed **`SWEEP-R`** — a deterministic expansion of a committed slot grammar, 150
+variants, 156 router calls, regenerable byte-for-byte on a clean clone with no API key. The human-oracle
+conjunct holds *by construction*: the builder authors the anchor span once and the grammar may never mutate
+it. Success is **lift over M2's measured confusion rate**, not existence, and the same recorded routings are
+replayed through arm 1a as a positive control at zero extra API cost — if that produces no would-be
+unauthorised objects, the arm-2 null publishes as `INSTRUMENT_FAILURE`, not as a defence.
+
+Disclosure is a structured record (`ATTACKER_PROVENANCE`), serialised into every trial and hashed into the
+manifest, with `attacker_sha` in `verify.py`'s aggregation key. It is **not** a boolean and **not** in
+`GUARD.json`: red must keep meaning "the instrument broke", and a condition that never clears would be red
+for the project's life. The label is welded into the rendered rate string so a screenshot cannot lose it.
+Full pre-registration in `PREREG.md`, committed 31 Aug — four days before the run.
+
+**No human action, and no billing.**
 
 T0 **is** the thesis and is the literal answer to the rubric line *"AI judgment — the right tool in the right
 place, **and where you chose not to use one**."*

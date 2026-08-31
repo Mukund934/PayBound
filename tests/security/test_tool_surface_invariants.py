@@ -247,21 +247,98 @@ def test_i02_model_id_lives_in_exactly_one_file():
     assert not offenders, f"a model id appears outside agent/models.py: {offenders}"
 
 
-def test_i02_attacker_tier_is_declared_not_assumed():
-    """The T2 quota constraint must be represented in code, not remembered.
+def test_i02_attacker_record_is_complete_and_coherent():
+    """The adversary must be described by a complete record, not a boolean.
 
-    If a stronger attacker ever becomes reachable this flag flips deliberately;
-    while it is set, the harness is obliged to stamp the limitation onto the
-    report. A run must not be able to publish an adversarial claim it did not
-    earn.
+    An earlier version of this was ``assert T2_ATTACKER == T1_AGENT_UNDER_TEST``
+    while a flag said no stronger attacker was reachable. That test asserted
+    string equality and stamped nothing, and it would have forced the flag to
+    its dishonest value the moment the attacker became anything other than a
+    single model id. This asserts the record says enough to be checkable.
     """
-    assert isinstance(models.T2_QUOTA_BLOCKED, bool)
-    if models.T2_QUOTA_BLOCKED:
-        assert models.T2_ATTACKER == models.T1_AGENT_UNDER_TEST, (
-            "T2_QUOTA_BLOCKED says no stronger attacker is reachable, but T2 and T1 "
-            "differ — one of the two is wrong and the report would misdescribe the "
-            "adversary"
-        )
+    rec = models.ATTACKER_PROVENANCE
+    required = {
+        "campaign_id",
+        "campaign_name",
+        "generator",
+        "generator_model_ids",
+        "search_model_ids",
+        "router_model_id",
+        "tier_vs_t1",
+        "tier_reason",
+        "oracle_access",
+        "variant_cap",
+        "human_oracle_guarantee",
+        "success_criterion",
+        "positive_control",
+    }
+    assert required <= set(rec), f"attacker record is missing {required - set(rec)}"
+    assert rec["router_model_id"] == models.T1_AGENT_UNDER_TEST
+    assert rec["tier_vs_t1"] in {"STRONGER", "PARITY_OR_BELOW", "UNKNOWN"}
+    assert rec["tier_reason"], "a tier claim without a stated reason is not checkable"
+
+
+def test_i02_stronger_attacker_flag_is_derived_not_hand_set():
+    """One place states the tier. Everything else reads it."""
+    assert models.STRONGER_ATTACKER_AVAILABLE is (
+        models.ATTACKER_PROVENANCE["tier_vs_t1"] == "STRONGER"
+    )
+
+
+def test_i02_a_stronger_attacker_claim_without_an_attacker_model_is_unimportable():
+    """The mutation test for the honesty record — I-10 applied to disclosure.
+
+    Flip the record to claim a stronger adversary while naming no attacker
+    model, re-execute the module's import-time asserts, and require a failure. A
+    disclosure mechanism that cannot go red is decoration.
+    """
+    import ast
+    from pathlib import Path
+
+    src = Path(models.__file__).read_text(encoding="utf-8")
+    mutated = src.replace('"tier_vs_t1": "PARITY_OR_BELOW"', '"tier_vs_t1": "STRONGER"')
+    assert mutated != src, "the mutation target moved; update this test"
+    ast.parse(mutated)
+    ns: dict[str, object] = {"__name__": "paybound.agent._mutated_models"}
+    with pytest.raises(AssertionError, match="stronger attacker"):
+        exec(compile(mutated, "<mutated models.py>", "exec"), ns)
+
+
+def test_i02_attacker_sha_is_stable_and_covers_the_whole_record():
+    """The hash joins the aggregation key, so two different adversaries can
+    never be silently pooled into one published rate."""
+    first = models.attacker_sha256()
+    assert first == models.attacker_sha256()
+    assert len(first) == 64
+
+
+def test_i02_the_rate_label_is_welded_to_the_number_not_stored_beside_it():
+    """A qualification a screenshot cannot lose.
+
+    The stamp is designed to sit inside the same string as the digit, so a video
+    frame or a cropped image carries it. A flag in a source file is invisible to
+    every one of those.
+    """
+    stamp = models.attacker_stamp()
+    assert stamp and "attacker" in stamp
+    assert "T1-parity" in stamp or "above-T1" in stamp
+    rendered = f"0.0% (0/70) - {stamp}"
+    assert "attacker" in rendered
+
+
+def test_i02_the_disclosure_is_specific_not_a_global_disclaimer():
+    """Over-disclosure is also a misrepresentation.
+
+    A blanket "my security numbers may be optimistic" would be factually wrong:
+    it implies a discount on the benign-corpus metrics, the invariants and the
+    exhaustive property test, none of which depend on attacker strength. The
+    published paragraph must scope itself and must say what it does NOT bear on.
+    """
+    para = models.attacker_paragraph()
+    assert "does not bear on" in para.lower()
+    assert "lower bound" in para.lower()
+    for forbidden in ("provably", "100%", "solved", "unbreakable"):
+        assert forbidden not in para.lower()
 
 
 def test_i02_lockfile_is_committed_and_parseable():
