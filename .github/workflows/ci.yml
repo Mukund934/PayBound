@@ -1,0 +1,225 @@
+name: CI
+
+# Two jobs, deliberately.
+#
+#   check   — the suite, the lint, the import boundaries, the secret scan.
+#             Runs with no credentials of any kind, because CI must never be
+#             able to move money.
+#   verify  — runs verify.py against committed evidence exactly as a reviewer
+#             would: a fresh clone, nothing installed, no network, no keys.
+#
+# `verify` deliberately does NOT depend on `check`. They answer different
+# questions — "is the code correct" and "do the published numbers follow from
+# the committed bytes" — and a reviewer only cares about the second. Chaining
+# them would mean a lint failure hid the answer to the question that matters.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      # No RZP_* or GEMINI_* in the environment. The live tests deselect
+      # themselves, and nothing in CI can reach the API even by accident.
+      - name: Test
+        run: pytest -q -m "not live"
+
+      - name: Tool registry lockfile has not drifted
+        run: |
+          python - <<'PY'
+          from paybound.agent.tools import verify_lockfile
+          print("tool_registry_sha", verify_lockfile())
+          PY
+
+      - name: Policy hash is stable
+        run: |
+          python - <<'PY'
+          from paybound.core.policy.table import POLICY_SHA256, policy_manifest
+          assert len(policy_manifest()) == 9
+          print("policy_sha", POLICY_SHA256)
+          PY
+
+      # A repository that ships a key is a repository whose security claims
+      # nobody should read. Independent of the in-suite scan so a change to the
+      # test suite cannot switch it off.
+      - name: Secret scan
+        run: |
+          python - <<'PY'
+          import pathlib, re, subprocess, sys
+          pats = {
+              "razorpay key": re.compile(r"rzp_(?:test|live)_([A-Za-z0-9]{12,})"),
+              "google key": re.compile(r"(AIza[A-Za-z0-9_-]{20,})|\bAQ\.([A-Za-z0-9_-]{30,})"),
+              "anthropic key": re.compile(r"sk-ant-([A-Za-z0-9_-]{20,})"),
+              "private key": re.compile(r"(-----BEGIN [A-Z ]*PRIVATE KEY-----)"),
+          }
+
+          def is_placeholder(body):
+              """A template's fill-me-in value is not a leaked credential.
+
+              .env.example must ship a key-SHAPED string or it fails to document
+              the shape. Requiring real entropy is what separates the template
+              from a leak. Exempting the file by name would be worse: that is
+              how a real key ends up in the one file nobody scans.
+              """
+              return len(set(body.lower())) <= 2 or body.lower().strip("x") == ""
+
+          bad = []
+          # Only what git actually tracks. A secret is leaked when it is
+          # COMMITTED, so that is exactly the set to scan. Walking the working
+          # tree instead would flag the git-ignored .env, the virtualenv and
+          # compiled .pyc files -- none of which exist in a fresh checkout, so
+          # the job would pass in CI while being unrunnable locally, and a check
+          # nobody can run locally is a check nobody runs.
+          tracked = subprocess.run(
+              ["git", "ls-files", "-z"], capture_output=True, text=True, check=True
+          ).stdout.split("\0")
+          for name in filter(None, tracked):
+              p = pathlib.Path(name)
+              if not p.is_file():
+                  continue
+              if p.suffix in {".png", ".jpg", ".jpeg", ".gif", ".pdf", ".ico", ".woff2"}:
+                  continue
+              try:
+                  text = p.read_text(encoding="utf-8", errors="ignore")
+              except Exception:
+                  continue
+              for lineno, line in enumerate(text.splitlines(), 1):
+                  if "PB_FAKE_KEY" in line:
+                      continue
+                  for name, rx in pats.items():
+                      m = rx.search(line)
+                      if not m:
+                          continue
+                      body = next((g for g in m.groups() if g), "")
+                      if body and is_placeholder(body):
+                          continue
+                      bad.append(f"{p}:{lineno}  {name}")
+          if bad:
+              print("SECRETS FOUND:", *bad, sep="\n  ")
+              sys.exit(1)
+          print("secret scan clean")
+          PY
+
+      - name: .env is ignored
+        run: |
+          git check-ignore .env >/dev/null 2>&1 || {
+            echo "FAIL: .env is not git-ignored" >&2; exit 1; }
+          test ! -f .env || { echo "FAIL: .env is present in the tree" >&2; exit 1; }
+          echo ".env correctly absent and ignored"
+
+      # The submission is authored by one person. This fails the build rather
+      # than being checked by eye on the last day.
+      - name: Commit authorship
+        run: |
+          python - <<'PY'
+          import subprocess, sys
+
+          # Attribution lives in the author/committer FIELDS and in trailers.
+          # It does not live in prose. Commit messages in this repository
+          # legitimately discuss the Claude Agent SDK and the Anthropic-to-Gemini
+          # provider change as architecture, and a blunt substring scan over
+          # message bodies fails the build on correct commits -- which is how a
+          # real check gets switched off for being noisy.
+          ident = subprocess.run(
+              ["git", "log", "--format=%an|%ae|%cn|%ce"],
+              capture_output=True, text=True, check=True).stdout
+          banned_ident = ("claude", "anthropic", "bot", "ai-", "openai", "copilot")
+          bad_ident = [
+              line for line in ident.lower().splitlines()
+              if any(b in line for b in banned_ident)
+          ]
+
+          # Trailers only: a line that STARTS with an attribution key.
+          bodies = subprocess.run(
+              ["git", "log", "--format=%B"],
+              capture_output=True, text=True, check=True).stdout
+          banned_trailer = ("co-authored-by:", "signed-off-by: claude", "generated with")
+          bad_trailer = [
+              line for line in bodies.lower().splitlines()
+              if any(line.strip().startswith(b) for b in banned_trailer)
+          ]
+
+          if bad_ident or bad_trailer:
+              print("AI attribution found:", *(bad_ident + bad_trailer)[:10], sep="\n  ")
+              sys.exit(1)
+          print("authorship clean across", len(ident.splitlines()), "commits")
+          PY
+
+  verify:
+    # Independent of `check` on purpose: a reviewer's question is whether the
+    # published numbers follow from the committed bytes, and a lint failure
+    # must not hide that answer.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # No `pip install` step at all. verify.py is standard library only, and
+      # this job is the proof: if it ever needed a dependency, this job breaks.
+      #
+      # Exit codes are distinguished on purpose:
+      #   0  every published number was recomputed and matched
+      #   1  verification FAILED -- the guard is red, or a number does not follow
+      #      from the committed bytes. Always a build failure.
+      #   2  there is no committed run yet. Reported loudly, but not a failure:
+      #      the repository is not yet claiming any number, and a red build for
+      #      "you have not run the benchmark" trains people to ignore red.
+      - name: Recompute every published number, offline
+        run: |
+          set +e
+          python3 verify.py
+          rc=$?
+          set -e
+          if [ "$rc" = "2" ]; then
+            echo "::warning::No committed run yet — nothing to verify. This must be"\
+                 "0 before submission."
+            exit 0
+          fi
+          exit $rc
+
+      - name: verify.py is standard library only
+        run: |
+          python3 - <<'PY'
+          import ast, sys
+          tree = ast.parse(open("verify.py", encoding="utf-8").read())
+          mods = set()
+          for n in ast.walk(tree):
+              if isinstance(n, ast.Import):
+                  mods |= {a.name.split(".")[0] for a in n.names}
+              elif isinstance(n, ast.ImportFrom) and n.module and not n.level:
+                  mods.add(n.module.split(".")[0])
+          extra = mods - set(sys.stdlib_module_names)
+          assert not extra, f"verify.py imports non-stdlib: {sorted(extra)}"
+          assert "paybound" not in mods, "verify.py must not import the code it verifies"
+          print("verify.py imports:", sorted(mods))
+          PY
