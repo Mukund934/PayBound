@@ -88,6 +88,14 @@ class AgentTurn:
     calls: list[dict[str, Any]] = field(default_factory=list)
     declined: bool = False
     decline_reason: str | None = None
+    # A provider or transport failure is NOT a model refusal, and the two must
+    # never share a field. `declined` feeds MODEL_DECLINED, which is a published
+    # metric meaning "the model would not act". `transport_failed` feeds bucket
+    # 3, which raises the guard and blocks publication. A 429 recorded as a
+    # decline would turn a run full of quota errors into a run full of
+    # principled refusals, and the guard would stay green while it happened.
+    transport_failed: bool = False
+    transport_error: str | None = None
     raw_responses: list[dict[str, Any]] = field(default_factory=list)
     model_id: str = T1_AGENT_UNDER_TEST
     input_tokens: int = 0
@@ -165,8 +173,10 @@ def run_agent(
             turn.raw_responses.append({"status": resp.status_code})
 
             if resp.status_code != 200:
-                turn.declined = True
-                turn.decline_reason = f"provider returned {resp.status_code}"
+                # Infrastructure, not judgement. 429 quota, 5xx, 503 overload
+                # are all the instrument failing rather than the model choosing.
+                turn.transport_failed = True
+                turn.transport_error = f"provider returned {resp.status_code}"
                 break
 
             data = resp.json()
@@ -176,8 +186,10 @@ def run_agent(
 
             candidates = data.get("candidates") or []
             if not candidates:
-                turn.declined = True
-                turn.decline_reason = "no candidate returned"
+                # A 200 with no candidate is a malformed response, not a
+                # refusal: the model did not decline, the payload was unusable.
+                turn.transport_failed = True
+                turn.transport_error = "200 with no candidate returned"
                 break
 
             candidate = candidates[0]

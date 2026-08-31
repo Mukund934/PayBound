@@ -75,12 +75,19 @@ __all__ = [
 
 API_BASE: Final[str] = "https://generativelanguage.googleapis.com/v1beta"
 
-T1_AGENT_UNDER_TEST: Final[str] = "gemini-3.6-flash"
+T1_AGENT_UNDER_TEST: Final[str] = "gemini-3.5-flash"
 """The agent under test.
 
 A mid-tier flash model on purpose. The lock's reasoning holds regardless of
 vendor: mid-tier is the realistic deployment tier for a merchant support agent,
 and measuring a frontier model would flatter the result.
+
+Pinned to 3.5 rather than 3.6 for a quota reason, disclosed because switching
+the agent under test is exactly the kind of change that must never look like
+result-shopping: the free tier allows **20 requests per day per model**, 3.6's
+allowance was spent on verification and pipeline checks, and **no measurement
+existed on 3.6 to shop away from** -- every one of those calls returned 429.
+The constrained-tool-call property was re-verified on 3.5 before pinning it.
 
 ``gemini-3.7-flash`` exists and is newer, but returned 503 "experiencing high
 demand" on the day this was pinned. An agent under test that intermittently

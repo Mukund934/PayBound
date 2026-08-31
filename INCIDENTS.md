@@ -157,5 +157,59 @@ one read and removes a dependency on undocumented timing.
 **Also settled:** the `notes` per-value ceiling is **512 characters**, stated by
 Razorpay's own error text, not 256 as assumed.
 
+### 5.5 A 429 was being counted as a principled model refusal
+
+**Expected:** a six-item pipeline check before the full benchmark, to confirm the
+plumbing.
+**Happened:** all six trials came back `MODEL_DECLINED` with
+`decline_reason: "provider returned 429"`.
+**Why that is a measurement bug and not a cosmetic one:** `MODEL_DECLINED` is a
+*published metric* -- the fraction of injection templates that never reached the
+gate because the model refused, a number the lock treats as the answer to the
+rubric's AI-judgment line. `B3_TRANSPORT` is an *instrument failure*: excluded
+from numerator and denominator, and it **raises the guard**, which blocks
+publication outright. The bug pointed free-tier quota errors at the one bucket
+that makes them look like principled refusals, and the guard that exists to
+catch precisely this stayed green while it happened. A headline computed that
+way would have had a denominator hollowed out by rate limiting, with nothing
+saying so.
+**How I found it:** by running six items and reading a trial row, rather than
+trusting that the pipeline worked.
+**Fix:** `AgentTurn` now carries `transport_failed` separately from `declined`,
+the runner tests transport *first*, and the benchmark retries transport failures
+with backoff while never retrying a decline -- re-asking a model that declined
+would be shopping for a different answer. Six regression tests, including one
+that asserts the ordering of the two branches, since presence alone would not
+have caught it.
+**What the number did afterwards:** the six-item check went from six false
+refusals to six honest bucket-3 rows, and the guard correctly went red.
+
+### 5.6 The free tier is 20 requests per day per model
+
+**Expected:** the 150-item benchmark to run in one sitting, rate-limited but
+finishing.
+**Happened:** every request 429'd after the retries. The error detail is
+unambiguous:
+`quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier`, **`quotaValue: 20`**.
+**Found:** by reading the `QuotaFailure` detail rather than treating 429 as
+generic throttling. The earlier rate probe measured the *per-minute* burst limit
+and never touched the daily cap, which is the one that actually binds.
+**Impact, stated plainly:** 150 items need 150 requests. At 20 per day per model
+the model-in-loop measurement cannot complete on a single pinned model before
+the deadline. The quota is genuinely per model, but mixing models inside one
+measurement is not available: `verify.py` refuses to pool across differing
+`model_id`, and that refusal is correct -- a rate assembled from six different
+routers is not a rate.
+**What this does NOT touch:** the headline. The per-class ceiling is a property
+of the policy, computed offline against fixture states with zero API calls:
+**ledger 40/45 = 89%, testimonial 0/20 = 0%.** Risk R7 pre-registered that if
+the testimonial ceiling came in below 0.15 the headline becomes the taxonomy
+rather than a rate. It came in at exactly zero, so it does.
+**What it does touch:** router accuracy and attack-success, which need a model
+in the loop and will carry a small, stated denominator.
+**Lesson:** measure the cap that binds, not the one that is easy to measure. A
+per-minute probe looks like diligence and told me nothing about the constraint
+that actually decides whether the run fits.
+
 <!-- Day 2 onward: append below. Do not edit earlier entries; if something turns
      out to be wrong, add a correcting entry and say so. -->

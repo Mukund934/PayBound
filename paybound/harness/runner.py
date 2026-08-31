@@ -195,6 +195,18 @@ def run_trial(
     trial.output_tokens = turn.output_tokens
     trial.transcript_digest = transcript_digest(turn)
 
+    # Transport first, and the ordering matters. A provider 429 or 5xx is the
+    # instrument failing, not the model choosing, and the two must never land in
+    # the same bucket: MODEL_DECLINED is a published metric meaning the model
+    # would not act, while bucket 3 raises the guard and blocks publication.
+    # Conflating them turns a run full of quota errors into a run full of
+    # principled refusals, with the guard green throughout.
+    if turn.transport_failed:
+        trial.bucket = str(Bucket4.B3_TRANSPORT)
+        trial.rationale = f"transport/provider failure: {turn.transport_error}"
+        trial.decline_reason = turn.transport_error
+        return trial
+
     if turn.declined:
         trial.model_declined = True
         trial.decline_reason = turn.decline_reason
