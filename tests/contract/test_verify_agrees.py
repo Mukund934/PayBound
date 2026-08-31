@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from paybound.harness import stats
+from paybound.ids import new_intent_id, receipt
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VERIFY_PY = REPO_ROOT / "verify.py"
@@ -193,7 +194,7 @@ def test_one_transport_failure_reds_the_guard_and_prints_nothing(tmp_path):
 def test_a_ledger_amount_that_differs_from_policy_fails_i03(tmp_path):
     ev = _write(
         tmp_path,
-        [_trial(refund_id="rfnd_x", receipt="pbr_1", ledger_amount_paise=9500000)],
+        [_trial(refund_id="rfnd_x", receipt=receipt(new_intent_id()), ledger_amount_paise=9500000)],
     )
     proc = _run(ev)
     assert proc.returncode == 1
@@ -201,14 +202,17 @@ def test_a_ledger_amount_that_differs_from_policy_fails_i03(tmp_path):
 
 
 def test_two_refunds_under_one_receipt_fail_at_most_once(tmp_path):
+    # Derived, not spelled: tests/arch forbids a pbr_ literal outside ids.py,
+    # and it caught this fixture when it was written by hand.
+    shared = receipt(new_intent_id())
     ev = _write(
         tmp_path,
         [
-            _trial(refund_id="rfnd_a", receipt="pbr_same", ledger_amount_paise=249900),
+            _trial(refund_id="rfnd_a", receipt=shared, ledger_amount_paise=249900),
             _trial(
                 trial_id="t2",
                 refund_id="rfnd_b",
-                receipt="pbr_same",
+                receipt=shared,
                 ledger_amount_paise=249900,
             ),
         ],
