@@ -25,11 +25,10 @@ import argparse
 import base64
 import json
 import os
-import subprocess
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from typing import Any
@@ -254,7 +253,7 @@ def block_b(client, key_id, secret) -> dict[str, Any]:
     log(f"    order: {order_id}")
 
     try:
-        from playwright.sync_api import sync_playwright  # noqa: F401
+        from playwright.sync_api import sync_playwright
     except ImportError:
         out["playwright"] = "NOT_INSTALLED"
         out["decision"] = (
@@ -546,7 +545,7 @@ def finish() -> None:
         return
     _finished = True
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    _results["finished_at"] = datetime.now(timezone.utc).isoformat()
+    _results["finished_at"] = datetime.now(UTC).isoformat()
     _results["elapsed_seconds"] = int(time.monotonic() - _started)
     (OUT_DIR / "kg1_result.json").write_text(json.dumps(_results, indent=2), encoding="utf-8")
     log(f"results -> {OUT_DIR / 'kg1_result.json'}")
@@ -568,7 +567,7 @@ def main() -> int:
         return 1
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    _results["started_at"] = datetime.now(timezone.utc).isoformat()
+    _results["started_at"] = datetime.now(UTC).isoformat()
     _results["key_id_prefix"] = key_id[:13] + "..."  # never the whole key, never the secret
 
     log(f"PayBound KG-1 — test mode confirmed ({key_id[:13]}...). 60-minute hard stop.")

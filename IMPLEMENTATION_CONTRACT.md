@@ -6,8 +6,13 @@ Derived from `private-doc/architecture/01_ARCHITECTURE_LOCK.md`. **This document
 builder; it does not create architecture.** Where this file and the lock disagree, the lock wins and this
 file is the bug. Where the lock is silent, `AGENTS.md` decides.
 
-**Day 1 of 9 · 27 Aug 2026 · submit Fri 4 Sep 2026** (deadline 5 Sep, no cutoff time or timezone published,
-one-shot form with no edits — so 4 Sep is the target and 5 Sep is buffer only).
+**Day 5 of 9 · Mon 31 Aug 2026 · submit Fri 4 Sep 2026** (deadline 5 Sep, no cutoff time or timezone
+published, one-shot form with no edits — so 4 Sep is the target and 5 Sep is buffer only).
+
+> **Schedule state: three build days lost.** Days 2–4 (Fri 28 – Sun 30 Aug, 34 effective hours) produced no
+> commits. The plan in Part 4 of the lock is no longer achievable as written. **§13 is the reconciled
+> position and supersedes the day table for scheduling purposes only** — it changes *what gets built*, never
+> *what a number means*. Read §13 before starting work.
 
 ---
 
@@ -244,4 +249,117 @@ increments relative to `refund.status` · headless Playwright can drive Standard
 
 ---
 
-**Next action: KG-1, 60-minute hard stop, `python scripts/kg1_spike.py`. Requires `.env`.**
+## 13. RECONCILED POSITION — 31 Aug 2026, 12:40 IST
+
+Reconciled against the actual tree, not against the previous status message. Everything below was verified by
+inspection.
+
+### 13.1 What actually exists
+
+| Component | State | Evidence |
+|---|---|---|
+| `paybound/ids.py` | **DONE**, frozen | 21 tests |
+| `tests/arch/test_no_duplicate_id_derivation.py` | **DONE** | 4 tests |
+| `scripts/kg1_spike.py` | **WRITTEN**, never executed against real keys | needs `.env` |
+| `paybound/core/money.py` | **DONE** | paise-only arithmetic, no floats |
+| `paybound/core/types.py` | **DONE** | Kleene, TrustedState, 9-member enum |
+| `paybound/core/policy/{predicates,amount,table,decide}.py` | **DONE** | `POLICY_SHA256 = ee0e8589…` |
+| `paybound/rail/modeguard.py` | **DONE** | **I-06 green** — was a missed Day-1 gate |
+| `tests/security/test_authority_invariants.py` | **I-03, I-05, I-06 green** | 26 tests |
+| `tests/arch/test_boundaries.py` | **DONE** | core purity, credential edge, secret scan |
+| `docs/CITATIONS.md` | **DONE** | C-01 and C-02 are seal-blocking |
+| `paybound/{ledger,broker,agent,harness,seed}/` | **NOT STARTED** | — |
+| `verify.py`, `README.md`, `LIMITS.md`, `PREREG.md`, `.github/workflows/` | **NOT STARTED** | — |
+| `corpus/`, `evidence/`, `fixtures/` | **EMPTY** | — |
+
+**58 tests, 56 passing, 2 skipped** (the skips are forbidden-edge tests for `agent/` and `harness/corpus_gen/`,
+which fail automatically the day those packages appear without their edge test). `ruff` clean.
+
+`POLICY_SHA256` is computed over the table's *semantics*, not its source text — it was unchanged by a
+reformat, which is the property that lets a published number name its policy across cosmetic edits.
+
+### 13.2 The arithmetic, stated plainly
+
+Effective hours remaining from now: **~39** (6 today + 9 + 9 + 9 + 6). Work remaining under the lock's Part 4
+plan: **~76 hours**. The cut ladder's rungs #1–#6 return ~12 h. **The ladder alone does not close a ~37-hour
+gap.** Saying so here rather than discovering it on Day 7 is the whole point of this section.
+
+### 13.3 CLAUDE WORK — proceeds now, no human input
+
+Ordered by downstream fan-out. None of it depends on KG-1's answers.
+
+1. `ledger/` — sqlite schema, WAL, `synchronous=FULL`, intents, capabilities, events. **→ I-07**
+2. `broker/open_case.py` — case-shaped two-token mint, atomic single-use consume. **→ I-04**
+3. `agent/tools.py` + `tools.lock.json` — three verbs, sha256 lockfile. **→ I-01, I-02**
+4. `rail/` — `LedgerPort`, hand-rolled client, error classification (§6 is already fully specified),
+   recording/replay transport for fault injection. **→ I-05 at ~35 call sites, I-08**
+5. `harness/{runner,guard}.py` — four buckets, `MODEL_DECLINED`, denominator guard. **→ I-09, I-10**
+6. `verify.py` — stdlib only, offline, no keys.
+7. `corpus/` authoring against fixture ledger states; `README`, `LIMITS`, `PREREG`, CI workflow.
+
+The `--dry-ledger` mode (contingency Rung 2) is **built as the default execution path** and switched to live
+execution once credentials arrive. It costs nothing extra — the broker already halts with the exact bytes it
+would have POSTed — and it means every hour spent before `.env` exists produces the same artifact.
+
+### 13.4 HUMAN WORK — two items, ~4 minutes total
+
+| # | Action | Why it cannot be automated | Blocks |
+|---|---|---|---|
+| **H-1** | Razorpay **Test Mode** key id + secret into `paybound/.env` | Belongs to Mukund's Razorpay account; no API issues its own credentials | KG-1, seeding, all live execution |
+| **H-2** | `ANTHROPIC_API_KEY` into the same `.env` | Same reason | The agent under test (needed by the runner, not before) |
+
+Later, and not yet blocking: creating the public GitHub repository (Day 9), recording the video (Day 8),
+submitting the form (Day 9). `gh` is not installed on this machine, so the remote is created in a browser and
+Claude pushes to it.
+
+### 13.5 BLOCKERS
+
+| Blocker | Class | Reality |
+|---|---|---|
+| No `.env` | **HARD HUMAN** | Blocks KG-1 and live execution only. Roughly 15% of remaining work. |
+| C-01 carrier vocabulary uncited | **CLAUDE-RESOLVABLE**, seal-blocking | Must close before `corpus/SEAL.json` is written |
+| C-02 returns policy uncited | **CLAUDE-RESOLVABLE**, seal-blocking | Same |
+| KG-1's seven open API questions | **INFORMATIONAL** | The conservative branch is already implemented for each; none blocks construction |
+| Schedule gap of ~37 h | **HARD HUMAN DECISION** | §13.6 |
+
+Not blockers: running tests, running KG-1 once `.env` exists, installing dependencies (done), refactoring,
+documentation, fixtures, benchmarks, debugging, commits.
+
+### 13.6 The one decision that is genuinely Mukund's
+
+The gap does not close by working the plan harder. It closes by cutting scope, adding hours, or both.
+**Recommended, in this order:**
+
+1. Apply cut-ladder rungs **#1–#6 now**, not on Day 7 (~12 h).
+2. Halve the corpus: **80 → 40 benign, 70 → 35 attack** (~8 h). Per-class denominators fall to ~5 and Wilson
+   intervals roughly double in width. The lock protects *a frozen corpus*, not the number 80. This is the
+   cheapest remaining cut that does not touch a NEVER-CUT item.
+3. Size the seed to the smaller corpus: **~130 → ~50 payments**. Little wall clock, much less seeding risk.
+4. Move the freeze to **Wed 2 Sep, 18:00** — the lock's own "two days behind" rung. Earlier, not later.
+
+That still leaves roughly 17 h to find, which means **~13 h/day Mon–Thu instead of 9**. Whether those hours
+exist is Mukund's call and nobody else's.
+
+**Calendar collision to check now, not on Thursday:** the SIH 2026 IIIT-NR internal registration closes
+**Wed 3 Sep** and needs a team of six plus a named problem statement. Day 8 (Thu 3 Sep) is video day — three
+rehearsals and three takes. These overlap.
+
+**NEVER CUT, unchanged:** the frozen benign corpus · four-bucket accounting and the denominator guard · all
+ten invariants · `verify.py` and the committed evidence · the architecture SVG on the README's first screen ·
+the AI-buyer purchase leg · the video · `INCIDENTS.md`.
+
+### 13.7 Next actions
+
+**NEXT AUTOMATABLE ACTION:** `ledger/` — schema, intents, capabilities, events — then `broker/open_case.py`.
+Starts immediately, needs nothing from anyone.
+
+**NEXT REQUIRED HUMAN ACTION:** H-1 and H-2 above. ~4 minutes. On completion, Claude runs KG-1 unprompted and
+records the result here and in `INCIDENTS.md`.
+
+---
+
+**KG-1 status: NOT EXECUTED. Reason: no local credentials. Observed Razorpay failure: none.** The spike has
+been exercised against the real API far enough to confirm the transport, the auth header, the error parsing
+and the mode guard (a deliberately invalid test key returns a correctly parsed `401 Authentication failed`).
+It has never been run with valid keys, so it has never answered the question it exists to answer. Nothing
+about Razorpay's refund behaviour has been observed, and nothing may be claimed about it.

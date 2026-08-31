@@ -56,12 +56,12 @@ from typing import Final
 __all__ = [
     "IDEM_PREFIX",
     "RECEIPT_PREFIX",
-    "new_intent_id",
-    "idem_key",
-    "receipt",
-    "is_intent_id",
-    "intent_id_from_receipt",
     "ULID_RE",
+    "idem_key",
+    "intent_id_from_receipt",
+    "is_intent_id",
+    "new_intent_id",
+    "receipt",
 ]
 
 # --- The two prefixes. Nothing else in the codebase may spell these. ---------
