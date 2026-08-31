@@ -172,20 +172,32 @@ not an embarrassment to it.
 
 ---
 
-## C-03 — Prior art conceded by name · **OPEN**
+## C-03 — Prior art conceded by name · **CLOSED**
 
-CaMeL, Fides, Aegis, PACT and PACE, plus AP2's threat-model line and ACP's
-"returns authorization flows" scope exclusion, are quoted on the README's first
-screen and in the video's opening.
+Every arXiv identifier asserted in this repository was fetched and checked on
+**1 September 2026**. A wrong arXiv number is a fabricated citation even when the
+paper is real, so none was carried forward on memory.
 
-The implementation contract currently attributes the untrusted-text rule to
-PACT as `arXiv:2605.11039`. **That identifier has not been verified against the
-actual paper and must be before it ships.** A wrong arXiv number is a fabricated
-citation even when the paper is real.
+| Cited as | Verified | Actual title |
+|---|---|---|
+| PACT, `arXiv:2605.11039` | ✓ | *The Granularity Mismatch in Agent Security: Argument-Level Provenance Solves Enforcement and Isolates the LLM Reasoning Bottleneck* — Fan, Li, Tian, Wang, Li, Wang. cs.CR, 11 May 2026. Introduces **PACT (Provenance-Aware Capability Contracts)** and reframes agent security as **authority binding**. |
+| Nasr et al., `arXiv:2510.09023` | ✓ | *The Attacker Moves Second: Stronger Adaptive Attacks Bypass Defenses Against LLM Jailbreaks and Prompt Injections* — Nasr, Carlini, Sitawarin, Schulhoff, Hayes, Ilie, Pluto, Song, Chaudhari, Shumailov, Thakurta, Xiao, Terzis, Tramèr. Bypasses **12 defences at >90%**. |
+| SecOPD, `arXiv:2608.21500` | ✓ | *SecOPD: Mitigating Adaptive Prompt Injections by On-Policy Distillation* — Peng, Lian, Wagner, Chen. EMNLP 2026. |
 
-**Status:** OPEN. Blocking the README, not the corpus seal.
+**One correction to the architecture lock's own wording.** The lock characterises
+SecOPD as reporting that *"current defences still suffer near-100% success under
+adaptive prompt injection."* The paper actually reports **94.0%** attack success
+against the *previous best* defence (Meta-SecAlign) and **9.0%** for its own
+method. Repeating the lock's framing would have understated a cited paper's
+contribution in order to strengthen our own framing, which is the direction of
+error that matters most. The README states both numbers.
 
----
+**A distinction PayBound must not blur.** PACT *tracks* argument provenance;
+PayBound makes provenance *irrelevant* by recomputing every authority-bearing
+argument from trusted state. That is a narrower and less general position than
+PACT's, not a better one, and the README says so in those words.
+
+**Status:** CLOSED, 1 Sep 2026.
 
 ## C-04 — Reason-mix weights for the worked example · **OPEN, non-blocking**
 
@@ -200,3 +212,4 @@ says so in the same sentence**. That fallback is pre-committed, not a failure.
 
 - **C-01** — carrier vocabulary, 31 Aug 2026, under the amended condition above.
 - **C-02** — merchant returns policy, 31 Aug 2026.
+- **C-03** — prior art and every arXiv identifier, 1 Sep 2026.

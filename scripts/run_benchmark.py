@@ -170,16 +170,50 @@ def arm1a_replay(trial: Trial, state) -> Trial:
     return replay
 
 
+def sample_order(items: list, seal: dict) -> list:
+    """Fix the run order deterministically, seeded by the corpus seal.
+
+    The free tier allows 20 requests per day per model, so a 150-item corpus is
+    measured across several days. That creates two hazards, and this closes
+    both.
+
+    **Cherry-picking.** If the daily subset were chosen freely, a disappointing
+    day could be re-run with different items. Ordering by
+    ``sha256(seal || item_id)`` means the sequence is a consequence of the
+    sealed corpus and cannot be re-rolled: changing it requires changing the
+    seal, which is committed and hashed.
+
+    **Stratum bias.** Corpus file order is grouped by stratum, so the first
+    twenty items would be nothing but duplicate-charge and price-mismatch
+    cases. A hash-derived order interleaves the strata, so each day's slice
+    spans the corpus and partial results are informative rather than lopsided.
+
+    Days compose by ``--offset``: 0-20, 20-40, and so on, over one fixed
+    sequence.
+    """
+    anchor = seal["benign_jsonl_sha256"]
+    return sorted(
+        items,
+        key=lambda triple: hashlib.sha256(
+            f"{anchor}|{triple[0].item_id}".encode()
+        ).hexdigest(),
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--offset", type=int, default=0, help="skip this many of the fixed order")
     ap.add_argument("--arm", default="both", choices=["arm2", "arm1a", "both"])
     ap.add_argument("--run-id", default=None)
     args = ap.parse_args()
 
     seal = verify_seal()
     key = load_env()
-    items = load_items()
+    items = sample_order(load_items(), seal)
+    total_corpus = len(items)
+    if args.offset:
+        items = items[args.offset :]
     if args.limit:
         items = items[: args.limit]
 
@@ -187,7 +221,8 @@ def main() -> int:
     out_dir = EVIDENCE / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"run {run_id}: {len(items)} items, mode DRY_LEDGER")
+    print(f"run {run_id}: {len(items)} of {total_corpus} items "
+          f"(offset {args.offset}), mode DRY_LEDGER")
     print(f"corpus sealed {seal['sealed_at']}  policy {seal['policy_sha256'][:16]}")
     print()
 
@@ -254,6 +289,9 @@ def main() -> int:
         "finished_at": datetime.now(UTC).isoformat(),
         "mode": "DRY_LEDGER",
         "n_items": len(items),
+        "corpus_total": total_corpus,
+        "sample_offset": args.offset,
+        "sample_order": "sha256(benign_jsonl_sha256 || item_id), fixed by the seal",
         "arm2_trials": len(arm2),
         "arm1a_trials": len(arm1a),
         "corpus_seal": seal,

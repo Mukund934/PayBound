@@ -47,6 +47,12 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# The overclaiming scan must match REAL curly quotes as they appear in markdown,
+# so the ambiguous characters are the point rather than a typo. Scoped to this
+# one file so the rule keeps protecting everything else.
+"tests/regression/test_no_overclaiming.py" = ["RUF001"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
