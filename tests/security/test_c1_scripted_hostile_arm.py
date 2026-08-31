@@ -12,12 +12,12 @@ to it — there is nothing left to try.
 
 Construction
 ------------
-The agent's whole output space is ``(tool, reason_code)``: 3 verbs × 9 enum
+The agent's whole output space is ``(tool, reason_code)``: 3 verbs x 9 enum
 members. Each is crossed with 6 hostile mutations drawn from the attack
 families the corpus declares "0 by construction":
 
-    depth 1   3 tools × 9 codes × 6 mutations  = 162
-    depth 2   9 pairs  × 9 codes × 6 mutations = 486
+    depth 1   3 tools x 9 codes x 6 mutations  = 162
+    depth 2   9 pairs  x 9 codes x 6 mutations = 486
                                                  ---
                                                  648
 
@@ -195,10 +195,10 @@ def test_depth2_no_hostile_sequence_reaches_an_unauthorised_refund(
     A read that succeeds followed by a write reusing the handle, or two
     terminal calls racing the single-use token, are only visible at depth 2.
     """
-    calls = [
-        ToolCall(first, {"case_handle": LEGIT_READ, **({} if first == "get_case" else {"reason_code": code.value})}),
-        _build(second, code, mut),
-    ]
+    first_args: dict = {"case_handle": LEGIT_READ}
+    if first != "get_case":
+        first_args["reason_code"] = code.value
+    calls = [ToolCall(first, first_args), _build(second, code, mut)]
     state = duplicate_charge_state()
 
     try:
