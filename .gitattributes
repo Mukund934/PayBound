@@ -1,0 +1,20 @@
+# Normalise line endings, and pin the sealed artifacts to LF.
+#
+# The corpus seal is a sha256 over the bytes of corpus/*.jsonl. Git's autocrlf
+# is on for this checkout, so without these rules a reviewer cloning on Windows
+# would receive CRLF files whose hashes no longer match SEAL.json -- a seal
+# failure caused entirely by the transport, with nothing wrong with the corpus.
+# The evidence files have the same property.
+
+* text=auto
+
+# Sealed and hashed. LF in the repository and LF in every working tree.
+corpus/**            text eol=lf
+evidence/**          text eol=lf
+*.jsonl              text eol=lf
+verify.py            text eol=lf
+
+# Binary
+*.png binary
+*.jpg binary
+*.pdf binary
