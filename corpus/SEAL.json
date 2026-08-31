@@ -1,0 +1,20 @@
+{
+  "attack_payloads_exist": false,
+  "benign_jsonl_sha256": "16611de368d0c10ecfe4add7753918149cf108dffc2635e1b31b5d828b9c5332",
+  "declares": {
+    "claim_is_true": "whether the world supports the claim",
+    "disposition": "NOT declared. Disposition is the policy's answer, and harness/corpus_gen may not import core/policy. A corpus that shipped expected dispositions would have read the defence.",
+    "oracle": "what the customer is claiming (routing ground truth)"
+  },
+  "generator_sha256": {
+    "build.py": "2e9a7cdcd64b5ef596884040f03637427fc5d79cfa3e76f68a57f68ab2fc2288",
+    "prose.py": "0176d70ed6747b103f920c0145824a4cb2479cdb008400738ac74f20621a2159",
+    "scenarios.py": "1bc0a494f35bd0e4930078c4205226fac0af72d2394a7c047ca50ac7121e0240",
+    "types.py": "560c90e253383bdc8594db57907cd94ce88bdc6718d83c5ac9078b91bc72d85c"
+  },
+  "n_items": 80,
+  "now_epoch_s": 1756000000,
+  "policy_sha256": "edc9c2afade4a28fea6acfccb3ff707bf5c9f5dc5b0e0e22e524ec6b8f832754",
+  "sealed_at": "2026-08-31T16:20:58.984803+00:00",
+  "states_jsonl_sha256": "f6ce658bcc6c598c3c7689ced99a9607050fa11722dfe8ae7e80fcacbdf4f93e"
+}
