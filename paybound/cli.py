@@ -46,6 +46,7 @@ def _load_scored_rows(limit: int) -> list[Any]:
     instead.
     """
     from paybound.core.policy.decide import decide
+    from paybound.core.policy.table import clause_for
     from paybound.core.types import FulfilmentState, ReasonCode
     from paybound.harness.corpus_gen.scenarios import ScenarioTruth, build_state
     from paybound.harness.report import DecisionRow
@@ -80,7 +81,12 @@ def _load_scored_rows(limit: int) -> list[Any]:
                 decision=d.outcome.value,
                 amount_paise=d.amount_paise,
                 clause_id=d.clause_id,
-                amount_fn=None,
+                # The function NAME, not "policy". The demo's hero beat puts a
+                # cursor on this string, so it has to be the real callable the
+                # amount came from rather than a category word.
+                amount_fn=(
+                    clause_for(oracle).amount_fn_name if d.amount_paise is not None else None
+                ),
                 predicates=tuple(
                     {
                         "name": p.name,
