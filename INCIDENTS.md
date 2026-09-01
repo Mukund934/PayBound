@@ -16,6 +16,61 @@ Rules, so the entries are usable later:
 
 ---
 
+## A campaign name in published evidence, describing a campaign that did not exist
+
+**Found:** 1 Sep 2026, surveying remaining work after the first benchmark run.
+**Severity:** the highest of any defect in this repository so far, because it
+had already reached committed evidence and a rendered report page.
+
+`ATTACKER_PROVENANCE` read `campaign_name: "SWEEP-R"` and
+`generator: "deterministic_template_sweep"`, and the disclosure paragraph said
+"The campaign is therefore a deterministic sweep over a committed slot grammar."
+`PREREG.md` §1.2 pre-registers SWEEP-R in detail — two cells, a variant cap of
+150, a fixed seed.
+
+No such grammar existed. The corpus's `attack_R` items were thirty hand-authored
+rotations of a six-pair list, carrying `origin: {"kind": "authored", "by":
+"builder"}` in the sealed corpus itself. The record was hashed into
+`attacker_sha` on all twenty committed trial rows and rendered into the report
+page a reviewer would read first.
+
+**This is the third instance of one defect.** A disclosure constant with one
+definition and zero consumers. A README citing a 648-assertion test arm before
+the arm existed. And now a provenance record naming a campaign that had not been
+written. Each time, the artefact described the more impressive version of
+reality, and each time the description came first and the thing never followed.
+
+**Fix, in three parts.**
+
+*Build it.* `paybound/harness/sweep_r.py` now expands the pre-registered grammar
+to 150 variants, deterministically, with no model, no clock and no randomness.
+315 tests cover it. Every variant is checked offline against the property that
+makes the campaign meaningful: at the honest oracle the policy escalates and
+pays nothing, and at the misroute sought it allows ₹2,499.00 — so the router's
+classification is provably the only thing between the prose and the money.
+
+*Say what actually happened.* The record now carries two separate facts where it
+carried one: `adversary_of_record: corpus_attack_items` describes what produced
+the items that were measured, and `sweep_r_status: BUILT_NOT_RUN` describes the
+campaign. Collapsing two facts into one field is how the more impressive of them
+came to describe the other. `attacker_stamp()` no longer says "deterministic
+sweep", and the disclosure paragraph states the campaign is unrun.
+
+*Pay for it.* Correcting the record changed `attacker_sha`, so the day-1 trials
+can no longer pool with anything produced under the corrected record — which is
+`verify.py` working as designed, not a bug. The run is marked
+`SUPERSEDED.json`, kept and readable rather than rewritten, and excluded from
+verification with a printed reason. `verify.py` is back to exit 2. Cost: one day
+of free-tier quota out of roughly three remaining.
+
+**What made it findable:** nothing did. No test failed. It surfaced from reading
+the provenance record against the corpus that was supposed to have produced it.
+So a test now exists — `test_i02_a_built_campaign_must_actually_exist` imports
+the module the record names and expands it to the cap the record declares, and
+`test_i02_a_run_claim_would_require_committed_sweep_trials` fails the build if
+the status is set to `RUN` with no sweep trials committed. A status field that
+can be raised to its most flattering value by editing one string is decoration.
+
 ## Day 1 — Thu 28 Aug 2026
 
 ### 1.1 The spike wrote its results file twice

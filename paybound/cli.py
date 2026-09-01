@@ -7,11 +7,12 @@ could not keep. A declared entry point with no module behind it is the same
 class of defect as a disclosure constant with no consumer: it reads as working
 until someone tries it.
 
-Four verbs, each a thin wrapper over something that already exists and is
+Five verbs, each a thin wrapper over something that already exists and is
 tested. The CLI adds no logic of its own, because a command that computes
 anything is a second implementation of it.
 
-    pb demo      write report.html from the sealed corpus, scored offline
+    pb demo      write report.html from the sealed corpus, routed at the oracle
+    pb report    write report.html from committed trials, routed by the model
     pb score     the per-class ceiling (KG-3), zero API calls
     pb verify    recompute every published number from committed evidence
     pb status    what is sealed, what is measured, what is not
@@ -184,7 +185,13 @@ def cmd_report(args: argparse.Namespace) -> int:
     trial_files = [
         p
         for p in sorted(evidence.rglob("trials.jsonl"))
-        if "smoke" not in p.parts and "ablation" not in p.parts
+        if "smoke" not in p.parts
+        and "ablation" not in p.parts
+        # A run marked SUPERSEDED.json is excluded here for the same reason
+        # verify.py excludes it: it was produced under a record that has since
+        # been corrected, so rendering it would put a number on a page that
+        # `pb verify` will not reproduce.
+        and not (p.parent / "SUPERSEDED.json").is_file()
     ]
     if not trial_files:
         print(
@@ -316,8 +323,11 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"  policy          {POLICY_SHA256[:32]}")
     print(f"  tool registry   {registry_sha256()[:32]}")
     print(f"  agent under test{T1_AGENT_UNDER_TEST:>18}")
-    print(f"  adversary       {ATTACKER_PROVENANCE['campaign_name']} "
-          f"({ATTACKER_PROVENANCE['tier_vs_t1']})")
+    print(f"  adversary       {ATTACKER_PROVENANCE['adversary_of_record']} "
+          f"({ATTACKER_PROVENANCE['tier_vs_t1']}, no attacker model)")
+    print(f"  SWEEP-R         {ATTACKER_PROVENANCE['sweep_r_status']} "
+          f"— {ATTACKER_PROVENANCE['sweep_r_variant_cap']} variants, "
+          "regenerable offline")
     if seal_path.is_file():
         seal = json.loads(seal_path.read_text(encoding="utf-8"))
         n_attack = (

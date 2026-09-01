@@ -417,9 +417,45 @@ def compute(
     return out
 
 
+
+def _superseded_root(path: Path, evidence_dir: Path) -> Path | None:
+    """The run directory marking this trials file superseded, if any.
+
+    Walks up from the file rather than testing one fixed depth, because the
+    ablation arm lives a level deeper and a marker on the run must cover both.
+    """
+    current = path.parent
+    while True:
+        if (current / "SUPERSEDED.json").is_file():
+            return current
+        if current == evidence_dir or current.parent == current:
+            return None
+        current = current.parent
+
+
 def verify(evidence_dir: Path, as_json: bool = False) -> int:
     trial_files = sorted(evidence_dir.rglob("trials.jsonl"))
-    real = [p for p in trial_files if "smoke" not in p.parts]
+
+    # A run whose directory carries SUPERSEDED.json is excluded -- and said out
+    # loud, never dropped quietly. Evidence is not deleted or rewritten when it
+    # turns out to have been produced under a record that was wrong; it is
+    # marked, kept, and left readable, because the marker is itself part of what
+    # a reviewer should be able to see.
+    superseded = {
+        p for p in trial_files if _superseded_root(p, evidence_dir) is not None
+    }
+    # One line per run, not per arm: a run has two trials files and the notice
+    # is about the run.
+    for root in sorted({_superseded_root(p, evidence_dir) for p in superseded}):
+        try:
+            reason = json.loads(
+                (root / "SUPERSEDED.json").read_text(encoding="utf-8")
+            ).get("reason", "")
+        except Exception:
+            reason = "(marker unreadable)"
+        print(f"VERIFY: excluding superseded run {root.name} — {reason}", file=sys.stderr)
+
+    real = [p for p in trial_files if "smoke" not in p.parts and p not in superseded]
     if not real:
         print("VERIFY: no committed run found (evidence/*/trials.jsonl).", file=sys.stderr)
         if trial_files:

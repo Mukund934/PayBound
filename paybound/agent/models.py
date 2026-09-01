@@ -130,14 +130,21 @@ headline metrics need in order to do it.
 # ---------------------------------------------------------------------------
 
 ATTACKER_PROVENANCE: Final[dict[str, Any]] = {
-    "campaign_id": "C3",
-    "campaign_name": "SWEEP-R",
-    "generator": "deterministic_template_sweep",
+    # What actually produced the attack items in every committed trial. Named
+    # separately from SWEEP-R because for several days this record said
+    # `campaign_name: SWEEP-R` and `generator: deterministic_template_sweep`
+    # while the corpus's attack_R items were thirty hand-authored rotations of a
+    # six-pair list and no such grammar existed anywhere in the tree. The claim
+    # was stamped onto every trial row and rendered on the report page. Two
+    # fields describing two different things is the fix; one field describing
+    # the more impressive of them is how it happened.
+    "adversary_of_record": "corpus_attack_items",
+    "adversary_generator": "authored_by_builder_rendered_by_slot_grammar",
+    "adversary_item_count": 70,
     # Empty on purpose, and load-bearing. No model appears anywhere in the
-    # generator or in the search loop. The variants are expanded from a
-    # committed slot grammar, so a reviewer regenerates them byte-for-byte on a
-    # clean clone with no API key -- which is the property verify.py exists to
-    # demonstrate and which no multi-provider ensemble could have had.
+    # generation or in any search loop, so a reviewer regenerates every item
+    # byte-for-byte on a clean clone with no API key -- the property verify.py
+    # exists to demonstrate, and one no multi-provider ensemble could have had.
     "generator_model_ids": [],
     "search_model_ids": [],
     "router_model_id": T1_AGENT_UNDER_TEST,
@@ -145,13 +152,25 @@ ATTACKER_PROVENANCE: Final[dict[str, Any]] = {
     "tier_reason": (
         "zero-paid-infrastructure constraint: every pro-tier model on this key "
         "returns HTTP 429 (quota), so no model above the agent under test was "
-        "reachable. The campaign therefore uses no attacker model at all."
+        "reachable. No attacker model is used anywhere."
     ),
     "oracle_access": "router_output_whitebox",
-    "variant_cap": 150,
     "human_oracle_guarantee": "anchor_span_immutable",
-    "success_criterion": "lift_over_measured_confusion_rate",
     "positive_control": "arm_1a_replay",
+    # The pre-registered campaign, reported by status rather than by name alone.
+    # BUILT_NOT_RUN is the whole point of the field: PREREG budgets 156 router
+    # calls, the free tier grants 20 requests a day and a trial costs up to
+    # four, so the campaign is about a fortnight of quota against a four-day
+    # deadline. Saying so is cheap; implying it ran is not.
+    "sweep_r_campaign_id": "C3",
+    "sweep_r_status": "BUILT_NOT_RUN",
+    "sweep_r_module": "paybound/harness/sweep_r.py",
+    "sweep_r_variant_cap": 150,
+    "sweep_r_success_criterion": "lift_over_measured_confusion_rate",
+    "sweep_r_note": (
+        "the grammar is committed and regenerable offline; no variant has been "
+        "put to the router, so no number in this repository is a SWEEP-R result"
+    ),
 }
 """What the adversary actually was. Measured quantities, never a verdict.
 
@@ -214,7 +233,10 @@ def attacker_stamp() -> str:
     """
     if STRONGER_ATTACKER_AVAILABLE:
         return "attacker above-T1"
-    return "attacker T1-parity, deterministic sweep"
+    # Names what actually produced the items, not the campaign that has not run.
+    # The previous wording, "deterministic sweep", described SWEEP-R -- which
+    # was unbuilt when the string was written and is unrun now.
+    return "attacker T1-parity, authored corpus, no attacker model"
 
 
 def attacker_paragraph() -> str:
@@ -227,15 +249,20 @@ def attacker_paragraph() -> str:
     different inaccuracy in the opposite direction.
     """
     return (
-        "The adversarial campaign used no attacker model. Every pro-tier model on "
-        "this API key returns a quota error, so no model stronger than the agent "
-        "under test was reachable, and a same-tier model driving a search over a "
-        "temperature-0 forced choice across nine enum members has no gradient to "
-        "follow. The campaign is therefore a deterministic sweep over a committed "
-        "slot grammar: complete over what its author thought of, and blind to "
-        "everything he did not. It is a lower bound on what a well-resourced "
-        "adversary would find. This bears on the routing and handle-confusion "
-        "families only. It does not bear on the 648-assertion property test, which "
-        "enumerates its entire input space and to which a stronger attacker could "
-        "add nothing, nor on any benign-corpus metric, nor on any invariant."
+        "No attacker model was used anywhere. Every pro-tier model on this API key "
+        "returns a quota error, so no model stronger than the agent under test was "
+        "reachable, and a same-tier model driving a search over a temperature-0 "
+        "forced choice across nine enum members has no gradient to follow. "
+        "The attack items measured here were therefore authored by the builder and "
+        "rendered through a deterministic grammar: complete over what its author "
+        "thought of, and blind to everything he did not. They are a lower bound on "
+        "what a well-resourced adversary would find. "
+        "SWEEP-R, the adversarial campaign pre-registered in PREREG.md, is BUILT "
+        "AND UNRUN: its grammar is committed and regenerates 150 variants offline, "
+        "but the free-tier quota is roughly a fortnight of router calls against a "
+        "four-day deadline, so no number in this repository is a SWEEP-R result. "
+        "This bears on the routing and handle-confusion families only. It does not "
+        "bear on the 648-assertion property test, which enumerates its entire input "
+        "space and to which a stronger attacker could add nothing, nor on any "
+        "benign-corpus metric, nor on any invariant."
     )

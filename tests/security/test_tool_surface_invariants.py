@@ -258,24 +258,100 @@ def test_i02_attacker_record_is_complete_and_coherent():
     """
     rec = models.ATTACKER_PROVENANCE
     required = {
-        "campaign_id",
-        "campaign_name",
-        "generator",
+        "adversary_of_record",
+        "adversary_generator",
+        "adversary_item_count",
         "generator_model_ids",
         "search_model_ids",
         "router_model_id",
         "tier_vs_t1",
         "tier_reason",
         "oracle_access",
-        "variant_cap",
         "human_oracle_guarantee",
-        "success_criterion",
         "positive_control",
+        "sweep_r_campaign_id",
+        "sweep_r_status",
+        "sweep_r_module",
+        "sweep_r_variant_cap",
+        "sweep_r_success_criterion",
     }
     assert required <= set(rec), f"attacker record is missing {required - set(rec)}"
     assert rec["router_model_id"] == models.T1_AGENT_UNDER_TEST
     assert rec["tier_vs_t1"] in {"STRONGER", "PARITY_OR_BELOW", "UNKNOWN"}
     assert rec["tier_reason"], "a tier claim without a stated reason is not checkable"
+    assert rec["sweep_r_status"] in {"BUILT_NOT_RUN", "RUN", "NOT_BUILT"}
+
+
+def test_i02_the_record_does_not_name_a_campaign_as_the_adversary_that_did_not_run():
+    """The defect this record was carrying, stated as a rule.
+
+    For several days the fields read `campaign_name: SWEEP-R` and
+    `generator: deterministic_template_sweep` while the corpus attack items were
+    thirty hand-authored rotations and no grammar existed. The claim was hashed
+    into attacker_sha on every trial row and rendered on the report page.
+
+    Two separate facts -- what produced the measured items, and what the
+    pre-registered campaign's status is -- need two separate fields. Collapsing
+    them into one is how the more impressive of the two came to describe the
+    other.
+    """
+    rec = models.ATTACKER_PROVENANCE
+    assert rec["adversary_of_record"] != "SWEEP-R"
+    if rec["sweep_r_status"] != "RUN":
+        stamp = models.attacker_stamp().lower()
+        assert "sweep" not in stamp, (
+            "the stamp welded into every published rate names a campaign that "
+            f"has not run (status {rec['sweep_r_status']})"
+        )
+        para = models.attacker_paragraph()
+        assert "UNRUN" in para or "not been run" in para, (
+            "the disclosure paragraph must say the campaign did not run"
+        )
+
+
+def test_i02_a_built_campaign_must_actually_exist():
+    """`BUILT_NOT_RUN` is checkable, so it is checked.
+
+    A status field is a claim like any other. If it says the grammar is built,
+    the module it names must import and expand to the cap it declares --
+    otherwise this record has simply acquired a more detailed way of being
+    wrong.
+    """
+    from pathlib import Path
+
+    rec = models.ATTACKER_PROVENANCE
+    if rec["sweep_r_status"] == "NOT_BUILT":
+        return
+    repo = Path(models.__file__).resolve().parents[2]
+    assert (repo / rec["sweep_r_module"]).is_file(), (
+        f"the record names {rec['sweep_r_module']}, which does not exist"
+    )
+    from paybound.harness.sweep_r import VARIANT_CAP, expand
+
+    assert rec["sweep_r_variant_cap"] == VARIANT_CAP
+    assert len(expand()) == rec["sweep_r_variant_cap"]
+
+
+def test_i02_a_run_claim_would_require_committed_sweep_trials():
+    """Flipping the status to RUN without evidence must fail the build.
+
+    The mutation test for this record: a status that can be set to its most
+    flattering value by editing one string is decoration.
+    """
+    from pathlib import Path
+
+    repo = Path(models.__file__).resolve().parents[2]
+    sweep_trials = [
+        p
+        for p in (repo / "evidence").rglob("*.jsonl")
+        if "sweep" in p.name.lower()
+    ]
+    if models.ATTACKER_PROVENANCE["sweep_r_status"] == "RUN":
+        assert sweep_trials, "status says RUN but no sweep trials are committed"
+    else:
+        assert not sweep_trials, (
+            "sweep trials are committed but the status does not say RUN"
+        )
 
 
 def test_i02_stronger_attacker_flag_is_derived_not_hand_set():

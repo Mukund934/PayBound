@@ -18,6 +18,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 
 
@@ -29,6 +31,31 @@ def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
         cwd=str(cwd or REPO),
         timeout=300,
     )
+
+
+
+def _live_trials() -> list[Path]:
+    """Committed, non-superseded, non-smoke arm2 trial files.
+
+    A superseded run is kept and readable but is not evidence: `pb verify` will
+    not produce a number from it, so neither may these tests. When there is no
+    live run the assertions below have nothing to assert and skip loudly, which
+    is the honest state between a correction and the re-run that follows it.
+    """
+    return [
+        p
+        for p in (REPO / "evidence").rglob("trials.jsonl")
+        if "ablation" not in p.parts
+        and "smoke" not in p.parts
+        and not (p.parent / "SUPERSEDED.json").is_file()
+    ]
+
+
+def _require_a_live_run() -> list[Path]:
+    live = _live_trials()
+    if not live:
+        pytest.skip("no live committed run — every run is superseded or absent")
+    return live
 
 
 def test_report_refuses_when_no_trials_are_committed(tmp_path, monkeypatch):
@@ -72,14 +99,14 @@ def test_report_refuses_on_the_smoke_directory_alone(tmp_path, monkeypatch):
 
 
 def test_report_page_names_the_partial_denominator():
+    _require_a_live_run()
     out = REPO / "report.html"
     proc = _run("report", "--out", str(out))
     assert proc.returncode == 0, proc.stderr[:400]
     doc = out.read_text(encoding="utf-8")
     n_trials = sum(
         1
-        for p in (REPO / "evidence").rglob("trials.jsonl")
-        if "ablation" not in p.parts and "smoke" not in p.parts
+        for p in _live_trials()
         for line in p.read_text(encoding="utf-8").splitlines()
         if line.strip()
     )
@@ -90,6 +117,7 @@ def test_report_page_names_the_partial_denominator():
 
 
 def test_report_is_self_contained():
+    _require_a_live_run()
     out = REPO / "report.html"
     assert _run("report", "--out", str(out)).returncode == 0
     doc = out.read_text(encoding="utf-8")
@@ -103,20 +131,21 @@ def test_report_rates_exclude_the_ablation_arm():
     Twenty rows exist on disk -- ten per arm. A rate whose denominator is 20 has
     pooled the system with its own control.
     """
+    _require_a_live_run()
     out = REPO / "report.html"
     assert _run("report", "--out", str(out)).returncode == 0
     doc = out.read_text(encoding="utf-8")
 
     arm2 = [
         json.loads(line)
-        for p in (REPO / "evidence").rglob("trials.jsonl")
-        if "ablation" not in p.parts and "smoke" not in p.parts
+        for p in _live_trials()
         for line in p.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
     both = arm2 + [
         json.loads(line)
         for p in (REPO / "evidence").rglob("ablation/trials.jsonl")
+        if not (p.parent.parent / "SUPERSEDED.json").is_file()
         for line in p.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
@@ -132,6 +161,7 @@ def test_the_ablation_appears_as_a_contrast_not_as_a_rate():
     and the same routing through a broker with the precondition check removed,
     so the difference is attributable to that check and to nothing else.
     """
+    _require_a_live_run()
     out = REPO / "report.html"
     assert _run("report", "--out", str(out)).returncode == 0
     doc = out.read_text(encoding="utf-8")
@@ -144,6 +174,7 @@ def test_demo_and_report_do_not_claim_to_be_the_same_thing():
     assert demo.returncode == 0
     assert "not a benchmark" in demo.stdout.lower()
 
+    _require_a_live_run()
     rep = _run("report")
     assert rep.returncode == 0
     assert "committed trials" in rep.stdout.lower()

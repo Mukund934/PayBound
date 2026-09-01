@@ -1,0 +1,15 @@
+{
+  "run_id": "run_1788265241",
+  "superseded_at": "2026-09-01",
+  "reason": "the attacker provenance stamped on every row named a campaign that had not run (campaign_name: SWEEP-R, generator: deterministic_template_sweep); attacker_sha changed when that was corrected",
+  "what_is_wrong": "the label, not the measurement",
+  "detail": [
+    "The run itself is sound. No attacker model was used, the attack items were the corpus's own, the routing and decisions are exactly what the model and the broker produced, and the ten trials are unaltered.",
+    "What is wrong is the provenance record hashed into every row. It described the adversary as SWEEP-R, a deterministic sweep over a committed slot grammar. No such grammar existed when these trials were written, and the campaign has still not been run against the router.",
+    "The record was corrected in paybound/agent/models.py, which changed attacker_sha256(). verify.py refuses to pool trials across differing attacker_sha, and it is right to: two adversary descriptions cannot produce one rate.",
+    "These rows are kept rather than rewritten. Editing committed evidence to match a corrected source is falsification, and the marker is more informative to a reviewer than a clean directory would have been."
+  ],
+  "action_taken": "re-run the same offset under the corrected record; the sample order is derived from the corpus seal, so offset 0 reproduces exactly these ten items",
+  "cost": "one day of free-tier quota",
+  "not_deleted_because": "archive, do not delete"
+}

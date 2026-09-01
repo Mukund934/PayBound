@@ -169,6 +169,11 @@ def test_readme_states_what_is_not_measured():
         json.loads(line)["item_id"]
         for path in (REPO_ROOT / "evidence").rglob("trials.jsonl")
         if "ablation" not in path.parts
+        # A superseded run is not measured evidence. It is kept and readable,
+        # but verify.py will not reproduce a number from it, so the README may
+        # not count it as measured either -- the two must agree or one of them
+        # is lying.
+        and not (path.parent / "SUPERSEDED.json").is_file()
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     }

@@ -135,35 +135,46 @@ KG-1, executed 31 Aug 2026 against `rzp_test_` keys. Raw responses in
 The refund carries a receipt this codebase minted (`pbr_` + ULID), so every
 object is attributable without a labelling step.
 
-### Measured so far — 10 of 150 items
+### Measured so far — nothing that verify.py will reproduce
 
-The Gemini free tier permits **20 requests per day per model**
-(`GenerateRequestsPerDayPerProjectPerModel-FreeTier`, quotaValue 20), and one
-trial costs up to four of them, so the corpus is measured across days by
-`--offset`. Day 1 committed **10 items**, in an order derived from the corpus
-seal and therefore not re-rollable.
+`python3 verify.py` exits **2**. That is the honest state, and it is deliberate.
 
-Ten items is ten items. These are not headline numbers, every one carries its
-denominator, and `verify.py` prints a rule-of-three upper bound beside every
-zero. They are here because the run happened, not because they are finished.
+Day 1 ran ten of the sealed 150 items against the model and committed them. The
+trials are real and unaltered. What was wrong was the **provenance record hashed
+onto every row**: it named the adversary `SWEEP-R`, `deterministic_template_sweep`
+— a campaign that had not been built when those rows were written, and that has
+still not been run against the router. See [INCIDENTS.md](INCIDENTS.md).
 
-| | arm2 — the system | arm1a — precondition-blind control |
-|---|---|---|
-| ALLOW | 30.0% (3/10) | 60.0% (6/10) |
-| Routed = human oracle | 100.0% (3/3 benign) | 100.0% (3/3) |
-| Paid on a claim the world does not support | **0.0% (0/2)**, ub 100.0% | **50.0% (1/2)** |
-| Refusals with zero outbound POSTs | 100.0% (7/7) | 100.0% (4/4) |
+Correcting the record changed `attacker_sha`. `verify.py` refuses to pool trials
+across differing attacker descriptions, and it is right to: two adversary
+descriptions cannot produce one rate. So the run is marked
+`evidence/run_1788265241/SUPERSEDED.json`, kept rather than rewritten — editing
+committed evidence to match a corrected source is falsification — and excluded
+from verification, which says so out loud each time it runs.
 
-The two arms differ **in the broker only** — same model call, same recorded
-routing — so the gap is attributable to the precondition check and to nothing
-else. On these ten items it prevented three ALLOWs and introduced none, and one
-of the three was `b_dis_00`, where the blind broker authorised ₹2,499.00 for a
-claim the trusted state does not support.
+The sample order is derived from the corpus seal, so re-running `--offset 0`
+reproduces exactly those ten items under the corrected record. The cost of the
+correction is one day of free-tier quota.
 
-**What is still unmeasured.** 140 items. Attack-success per family is 0/1, 0/4
-and 0/2 — denominators too small to carry a claim, which is why the upper bounds
-are printed next to them. No arm has yet been run against a stronger adversary
-than the sweep, and `LIMITS.md` says why there is not one.
+**What the superseded run did establish**, and what is not a rate: the
+precondition-blind control arm authorised ₹2,499.00 on a claim the trusted state
+does not support, and the full broker refused the same item. Existence claims
+need no denominator. Rates do, and there are none yet.
+
+### What is still unmeasured
+
+All **150 items**. Attack-success per family, router accuracy on the sealed
+corpus, and every automation rate. `verify.py` prints nothing rather than
+printing a number it cannot defend.
+
+**SWEEP-R is built and unrun.** `paybound/harness/sweep_r.py` expands a
+committed slot grammar to 150 variants across two cells, byte-for-byte
+reproducible on a clean clone with no API key. Every variant is verified offline
+to sit on a live gap: at the honest label the policy **escalates and pays
+nothing**, and at the misroute the campaign seeks it **allows ₹2,499.00**. One
+router misclassification on any of them is a real payout. It has not been put to
+the router — `PREREG.md` budgets 156 calls, the free tier grants 20 a day, and a
+trial costs up to four.
 
 ---
 
