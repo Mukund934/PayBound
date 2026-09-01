@@ -224,6 +224,22 @@ python scripts/build_corpus.py --benign
 
 ---
 
+## What fails closed, and how it was checked
+
+`tests/fault/test_i05_fails_closed.py` performs **197 injections** — every
+trusted-state field removed and then corrupted, crossed with all nine reason
+codes, plus forged capability handles, malformed intent writes and an
+unreadable ledger. Each asserts two things negatively: zero ALLOW and zero
+outbound POSTs. A test asserting "the right error message" would pass while the
+system paid out.
+
+A corrupt value is the harder half. A missing field is visibly absent, so naive
+code tends to notice; a corrupt one is *present*, so it gets read and acted on.
+
+The count is computed by the module, not written down — `injection_total()` —
+and a documentation test recomputes it, because this sentence and that suite
+must not be able to drift apart.
+
 ## The three boundaries
 
 **Security.** `broker.execute(cap_w, reason_code) -> Allow | Deny | Escalate`.

@@ -87,7 +87,7 @@ the secret scan gets a planted key, the overclaiming scan gets a real claim.
 
 ```bash
 pip install -e ".[dev]"      # then `pb status` to see what is sealed
-pytest -q                     # ~1100 tests, well under a minute
+pytest -q                     # ~1400 tests, well under a minute
 ruff check .                  # must exit 0; do not read this through a pipe
 ```
 

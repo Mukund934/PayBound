@@ -522,20 +522,34 @@ def test_reconciliation_never_calls_create_refund_under_any_fixture():
 # ===========================================================================
 
 
+# Call-site counts, module level so the documentation guard can import the
+# derivation instead of re-deriving it. Two derivations of one number is how a
+# doc and a test come to disagree about the same fact.
+_READ_SITES = 13
+_CORRUPT_SITES = 7
+_HANDLE_SITES = 8
+_INTENT_SITES = 4
+_RECONCILE_SITES = 2 + 2 + 1  # unreadable x2, executed x2, foreign x1
+
+
+def injection_total() -> int:
+    """The number of injections this module performs. Computed, never written."""
+    return (
+        _READ_SITES * len(ReasonCode)
+        + _CORRUPT_SITES * len(ReasonCode)
+        + _HANDLE_SITES
+        + _INTENT_SITES
+        + _RECONCILE_SITES
+    )
+
+
 def test_the_injection_count_is_derived_not_asserted():
     """State the number of call sites, computed rather than written down."""
-    read_sites = 13
-    corrupt_sites = 7
-    handle_sites = 8
-    intent_sites = 4
-    reconcile_sites = 2 + 2 + 1  # unreadable x2, executed x2, foreign x1
-    total = (
-        read_sites * len(ReasonCode)
-        + corrupt_sites * len(ReasonCode)
-        + handle_sites
-        + intent_sites
-        + reconcile_sites
-    )
+    read_sites = _READ_SITES
+    corrupt_sites = _CORRUPT_SITES
+    handle_sites = _HANDLE_SITES
+    intent_sites = _INTENT_SITES
+    total = injection_total()
     assert total == 117 + 63 + 8 + 4 + 5 == 197
     # The lock budgeted "~35 call sites"; the enumeration is larger because each
     # site is crossed with the full reason enum rather than sampled.
