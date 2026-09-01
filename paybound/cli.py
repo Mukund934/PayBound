@@ -7,12 +7,13 @@ could not keep. A declared entry point with no module behind it is the same
 class of defect as a disclosure constant with no consumer: it reads as working
 until someone tries it.
 
-Five verbs, each a thin wrapper over something that already exists and is
+Six verbs, each a thin wrapper over something that already exists and is
 tested. The CLI adds no logic of its own, because a command that computes
 anything is a second implementation of it.
 
     pb demo      write report.html from the sealed corpus, routed at the oracle
     pb report    write report.html from committed trials, routed by the model
+    pb sweep     the SWEEP-R campaign analysed offline, zero API calls
     pb score     the per-class ceiling (KG-3), zero API calls
     pb verify    recompute every published number from committed evidence
     pb status    what is sealed, what is measured, what is not
@@ -303,6 +304,71 @@ def cmd_score(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_sweep(args: argparse.Namespace) -> int:
+    """The SWEEP-R campaign, analysed offline. Zero API calls.
+
+    The campaign has not been run against the router and this does not run it.
+    What it shows is the thing that makes running it worthwhile: for every one
+    of the 150 variants, the honest label refuses and the misroute the campaign
+    seeks pays. So the router's classification is the only thing between the
+    prose and the money, and a null result from this campaign would mean
+    something -- a campaign aimed at a gap that is not there returns zero for
+    reasons having nothing to do with the defence.
+
+    Everything here is computed from the committed grammar and the policy. No
+    model is involved, so it is reproducible on a clean clone with no key.
+    """
+    from paybound.core.money import format_inr
+    from paybound.core.policy.decide import decide
+    from paybound.core.types import Outcome
+    from paybound.harness.corpus_gen.scenarios import build_state
+    from paybound.harness.sweep_r import CELLS, GRAMMAR_SHA256, expand
+
+    variants = expand()
+    print("SWEEP-R — pre-registered in PREREG.md 1.2, BUILT AND NOT RUN")
+    print(f"  grammar   {GRAMMAR_SHA256[:32]}")
+    print(f"  variants  {len(variants)}, deterministic, regenerable with no API key")
+    print()
+
+    at_risk = 0
+    for cell in CELLS:
+        rows = [v for v in variants if v.cell_id == cell.cell_id]
+        honest = [decide(v.oracle, build_state(v.truth)) for v in rows]
+        sought = [decide(v.sought, build_state(v.truth)) for v in rows]
+        paid = sum(d.amount_paise or 0 for d in sought)
+        at_risk += paid
+        print(f"  [{cell.cell_id}]  {cell.oracle.value} -> {cell.sought.value}   n={len(rows)}")
+        print(f"    honest label   {_outcome_tally(honest)}")
+        print(f"    misroute       {_outcome_tally(sought)}  {format_inr(paid)} at stake")
+        print(f"    why            {cell.rationale}")
+        print()
+
+    allowed = sum(
+        1 for v in variants if decide(v.sought, build_state(v.truth)).outcome is Outcome.ALLOW
+    )
+    print(f"  {allowed}/{len(variants)} variants sit on a live gap.")
+    print(f"  A total router failure across the sweep would move {format_inr(at_risk)}.")
+    print()
+    print("  The anchor that makes the honest label true survives verbatim in every")
+    print("  variant, and no variant asserts the claim of the class it provokes --")
+    print("  prose saying 'it never arrived' would make the misroute correct, and")
+    print("  scoring that as an attack success would be moving our own goalpost.")
+
+    if args.show:
+        print()
+        for v in variants[: args.show]:
+            print(f"  {v.variant_id}  [{v.position}]")
+            print(f"    {v.prose}")
+    return 0
+
+
+def _outcome_tally(decisions: list) -> str:
+    counts: dict[str, int] = {}
+    for d in decisions:
+        counts[str(d.outcome)] = counts.get(str(d.outcome), 0) + 1
+    return " ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     return subprocess.call([sys.executable, str(REPO / "verify.py")])
 
@@ -362,6 +428,10 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("report", help="report.html from committed trials")
     r.add_argument("--out", default="report.html")
     r.set_defaults(fn=cmd_report)
+
+    sw = sub.add_parser("sweep", help="SWEEP-R analysed offline, zero API calls")
+    sw.add_argument("--show", type=int, default=0, help="print this many variants")
+    sw.set_defaults(fn=cmd_sweep)
 
     s = sub.add_parser("score", help="per-class ceiling (KG-3), zero API calls")
     s.set_defaults(fn=cmd_score)

@@ -176,6 +176,14 @@ router misclassification on any of them is a real payout. It has not been put to
 the router — `PREREG.md` budgets 156 calls, the free tier grants 20 a day, and a
 trial costs up to four.
 
+```bash
+pb sweep
+```
+
+prints that analysis: both cells, what the policy does at each label, and the
+₹2,68,650.00 a total router failure across the sweep would move. No key, no
+network, no model.
+
 ---
 
 ## Verify it yourself

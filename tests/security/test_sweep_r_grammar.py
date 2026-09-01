@@ -261,3 +261,54 @@ def test_the_sought_class_is_reachable_from_the_agents_enum():
     for cell in CELLS:
         assert cell.sought in set(ReasonCode)
         assert cell.oracle in set(ReasonCode)
+
+
+# --------------------------------------------------------------------------
+# The offline analysis must be visible, not just testable
+# --------------------------------------------------------------------------
+
+
+def test_pb_sweep_runs_and_states_the_campaign_did_not_run():
+    """The evidence for SWEEP-R is offline, so it has to be reachable offline.
+
+    A result that exists only inside a test file is not something a reviewer
+    finds. `pb sweep` prints it, and must not let the reader think the campaign
+    was run against the router -- that is the misreading the whole correction
+    was about.
+    """
+    import subprocess
+    import sys
+
+    repo = Path(__file__).resolve().parents[2]
+    proc = subprocess.run(
+        [sys.executable, "-m", "paybound.cli", "sweep"],
+        capture_output=True,
+        text=True,
+        cwd=str(repo),
+        timeout=300,
+    )
+    assert proc.returncode == 0, proc.stderr[:400]
+    out = proc.stdout
+    assert "NOT RUN" in out.upper(), "pb sweep must say the campaign has not run"
+    assert "150/150 variants sit on a live gap" in out
+    assert "zero API calls" in out or "no API key" in out
+    for cell in CELLS:
+        assert cell.cell_id in out
+        assert cell.oracle.value in out
+        assert cell.sought.value in out
+
+
+def test_pb_sweep_makes_no_network_call():
+    """Parsed from the import graph, because the command's own text says "API"."""
+    import ast
+
+    repo = Path(__file__).resolve().parents[2]
+    tree = ast.parse((repo / "paybound" / "harness" / "sweep_r.py").read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names = {a.name.split(".")[0] for a in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            names = {node.module.split(".")[0]}
+        else:
+            continue
+        assert not (names & {"httpx", "requests", "urllib", "socket"})
