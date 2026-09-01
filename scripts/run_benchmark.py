@@ -225,7 +225,10 @@ def main() -> int:
 
     run_id = args.run_id or f"run_{int(time.time())}"
     out_dir = EVIDENCE / run_id
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # Created on the first successful trial, not up front. A run that halts on a
+    # quota wall at item 1 should leave nothing behind: an empty evidence
+    # directory with a manifest saying zero is indistinguishable at a glance
+    # from a run that measured zero, and one of those is a result.
 
     print(f"run {run_id}: {len(items)} of {total_corpus} items "
           f"(offset {args.offset}), mode DRY_LEDGER")
@@ -287,6 +290,7 @@ def main() -> int:
         if trial is None:
             continue
 
+        out_dir.mkdir(parents=True, exist_ok=True)
         arm2.append(trial)
         append_trial(trial, str(arm2_path))
         if args.arm in ("arm1a", "both"):
@@ -319,6 +323,15 @@ def main() -> int:
         "completed": len(arm2),
         "next_offset": args.offset + len(arm2),
     }
+    if not arm2:
+        print(f"\nno trials recorded; nothing written. {halted or 'no items completed'}")
+        if halted:
+            print(
+                "resume with: python scripts/run_benchmark.py --offset "
+                f"{args.offset} --limit 20"
+            )
+        return 0
+
     with (out_dir / "manifest.json").open("w", encoding="utf-8", newline="\n") as fh:
         fh.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
