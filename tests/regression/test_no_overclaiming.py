@@ -16,6 +16,7 @@ is a mention.**
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -140,9 +141,43 @@ def test_readme_concedes_prior_art_before_any_result():
 
 
 def test_readme_states_what_is_not_measured():
+    """And states it as a count that goes stale loudly.
+
+    This used to assert the literal heading "Not yet measured", which was a
+    string match on a heading that had to change the moment anything *was*
+    measured -- so it enforced the wording and not the honesty. The number is
+    the better test: it cannot drift quietly, and it fails the build on the one
+    occasion that matters, which is a run landing and the README still
+    describing the state before it.
+    """
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    assert "Not yet measured" in readme
     assert "LIMITS.md" in readme
+    assert "still unmeasured" in readme.lower(), (
+        "the README must say what it has not measured"
+    )
+
+    corpus_total = sum(
+        1
+        for name in ("benign.jsonl", "attack.jsonl")
+        if (REPO_ROOT / "corpus" / name).is_file()
+        for line in (REPO_ROOT / "corpus" / name)
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    )
+    measured = {
+        json.loads(line)["item_id"]
+        for path in (REPO_ROOT / "evidence").rglob("trials.jsonl")
+        if "ablation" not in path.parts
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+    remaining = corpus_total - len(measured)
+    assert f"{remaining} items" in readme, (
+        f"{remaining} of {corpus_total} corpus items are unmeasured and the README "
+        "does not say so. Update it, or the next run silently publishes a stale "
+        "denominator."
+    )
 
 
 def test_every_arxiv_id_cited_is_recorded_as_verified():

@@ -135,13 +135,35 @@ KG-1, executed 31 Aug 2026 against `rzp_test_` keys. Raw responses in
 The refund carries a receipt this codebase minted (`pbr_` + ULID), so every
 object is attributable without a labelling step.
 
-### Not yet measured
+### Measured so far — 10 of 150 items
 
-**Router accuracy and attack-success are incomplete.** They require a model in
-the loop, and the Gemini free tier permits **20 requests per day per model**
-(`GenerateRequestsPerDayPerProjectPerModel-FreeTier`, quotaValue 20). The corpus
-is 150 items. Those numbers will carry a small, explicitly stated denominator,
-and `verify.py` refuses to print any rate it cannot defend.
+The Gemini free tier permits **20 requests per day per model**
+(`GenerateRequestsPerDayPerProjectPerModel-FreeTier`, quotaValue 20), and one
+trial costs up to four of them, so the corpus is measured across days by
+`--offset`. Day 1 committed **10 items**, in an order derived from the corpus
+seal and therefore not re-rollable.
+
+Ten items is ten items. These are not headline numbers, every one carries its
+denominator, and `verify.py` prints a rule-of-three upper bound beside every
+zero. They are here because the run happened, not because they are finished.
+
+| | arm2 — the system | arm1a — precondition-blind control |
+|---|---|---|
+| ALLOW | 30.0% (3/10) | 60.0% (6/10) |
+| Routed = human oracle | 100.0% (3/3 benign) | 100.0% (3/3) |
+| Paid on a claim the world does not support | **0.0% (0/2)**, ub 100.0% | **50.0% (1/2)** |
+| Refusals with zero outbound POSTs | 100.0% (7/7) | 100.0% (4/4) |
+
+The two arms differ **in the broker only** — same model call, same recorded
+routing — so the gap is attributable to the precondition check and to nothing
+else. On these ten items it prevented three ALLOWs and introduced none, and one
+of the three was `b_dis_00`, where the blind broker authorised ₹2,499.00 for a
+claim the trusted state does not support.
+
+**What is still unmeasured.** 140 items. Attack-success per family is 0/1, 0/4
+and 0/2 — denominators too small to carry a claim, which is why the upper bounds
+are printed next to them. No arm has yet been run against a stronger adversary
+than the sweep, and `LIMITS.md` says why there is not one.
 
 ---
 
@@ -162,6 +184,13 @@ It **refuses** rather than warns: it will not pool trials whose `model_id`,
 `policy_sha`, `tool_registry_sha`, `prompt_sha` or `attacker_sha` differ; it
 prints nothing at all while any trial is bucket 3; and it cannot compute an
 adversarial rate from trials that carry no attacker provenance.
+
+It also **never pools the two arms**, which is a separate rule and had to be,
+because the arms legitimately share every field in the aggregation key — that is
+what makes them comparable. Pooling them once produced a single automation rate
+that was the mean of the system and its own ablation: a number describing
+neither, in the flattering direction, with the effect the control exists to show
+averaged away.
 
 Regenerate the corpus byte-for-byte:
 

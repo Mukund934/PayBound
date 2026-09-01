@@ -69,6 +69,13 @@ artifacts; `scripts/build_corpus.py::write_lf` is the writer.
 never sent. In money code, "I could not check" and "I checked and it is not
 there" are different answers and must have different types.
 
+**Never pool the two arms.** `arm1a` is a precondition-blind broker built to be
+worse than the system. `verify.py` pooled it into the headline for one run,
+because the arms share every field in the aggregation key -- which is exactly
+what makes them comparable, and is why this needs a rule of its own rather than
+falling out of the signature check. The error ran in the flattering direction
+and cancelled the effect the control exists to show.
+
 **A gate that cannot fail is decoration.** Every guard in this repository has a
 test that deliberately breaks the thing it guards and asserts the build goes
 red: I-10 deletes the aggregate bound, the C1 arm removes the family-A defence,
@@ -99,13 +106,23 @@ python scripts/run_benchmark.py --offset 0 --limit 20
 
 ### The benchmark is quota-bound
 
-The Gemini free tier allows **20 requests per day per model**. The corpus is 150
-items, so the model-in-loop run accumulates across days by `--offset`:
+The Gemini free tier allows **20 requests per day per model**, and `max_steps`
+is 4 -- so one trial costs between one and four requests, and twenty a day buys
+roughly **ten items**, not twenty. Pass `--limit 20` anyway: the run halts
+itself on a per-day 429 and prints the offset to resume from.
 
 ```
-day 1   --offset 0  --limit 20
-day 2   --offset 20 --limit 20
+day 1   --offset 0  --limit 20     # completed 10, halted at the quota boundary
+day 2   --offset 10 --limit 20
 ```
+
+Read `next_offset` in the run's `manifest.json` rather than assuming the
+previous day finished what it started.
+
+A daily-quota 429 stops the run; a per-minute 429 is retried with backoff. The
+two are told apart in `paybound/agent/loop.py`, and the distinction is not
+cosmetic: retrying a per-day exhaustion spends tomorrow's budget re-reading
+today's answer.
 
 The order is derived from the corpus seal (`sha256(seal || item_id)`), which is
 stratified and **cannot be re-rolled** — changing it requires changing a
