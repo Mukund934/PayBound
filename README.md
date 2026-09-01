@@ -175,6 +175,19 @@ No install, no keys, no network:
 python3 verify.py
 ```
 
+`verify.py` prints the numbers. `pb report` renders the same run as a page,
+one row per decision, showing the customer's words, the reason the model chose,
+every precondition re-checked against trusted state, and the outbound HTTP count
+beside each one:
+
+```bash
+pb report
+```
+
+Do not confuse it with `pb demo`, which routes at the oracle label to show the
+policy path with a perfect router. That one is not a measurement and says so on
+the page.
+
 `verify.py` is **standard library only** and **never imports the code it
 verifies** — a verifier sharing the producer's arithmetic would cancel out a
 shared bug. Both properties are asserted by tests, and the CI `verify` job has

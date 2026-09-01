@@ -94,7 +94,8 @@ ruff check .                  # must exit 0; do not read this through a pipe
 ```bash
 pb status                     # what is sealed, measured, and not
 pb score                      # per-class ceiling (KG-3), zero API calls
-pb demo                       # report.html from the sealed corpus
+pb demo                       # report.html from the sealed corpus, oracle-routed
+pb report                     # report.html from committed trials, model-routed
 pb verify                     # recompute published numbers, offline, no keys
 ```
 
