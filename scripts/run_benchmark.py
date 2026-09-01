@@ -35,7 +35,13 @@ sys.path.insert(0, str(REPO))
 
 from paybound.core.types import FulfilmentState, Outcome, ReasonCode  # noqa: E402
 from paybound.harness.corpus_gen.scenarios import ScenarioTruth, build_state  # noqa: E402
-from paybound.harness.runner import CorpusItem, Mode, Trial, run_trial, write_trials  # noqa: E402
+from paybound.harness.runner import (  # noqa: E402
+    CorpusItem,
+    Mode,
+    Trial,
+    append_trial,
+    run_trial,
+)
 
 CORPUS = REPO / "corpus"
 EVIDENCE = REPO / "evidence"
@@ -230,12 +236,22 @@ def main() -> int:
     arm1a: list[Trial] = []
     t_start = time.monotonic()
 
+    # Durable as they happen, not batched at the end. Twenty model calls a day
+    # means a lost trial costs a calendar day, so each one is fsynced before the
+    # next request goes out.
+    arm2_path = out_dir / "trials.jsonl"
+    arm1a_path = out_dir / "ablation" / "trials.jsonl"
+    halted: str | None = None
+
     for n, (item, state, _raw) in enumerate(items, 1):
         # Free-tier rate limiting. Retrying the ROUTING call is legal and is not
         # in tension with the at-most-once rule: that rule governs refund POSTs,
-        # which are money, not model calls, which are not. A trial that comes
-        # back B3_TRANSPORT is a 429 or 5xx, so back off and ask again rather
-        # than recording an instrument failure the guard would then block on.
+        # which are money. Model calls are not.
+        #
+        # But a daily-quota 429 is not something backoff can cure. Retrying it
+        # spends tomorrow's budget re-reading today's answer, so it stops the
+        # run instead -- which is also the honest outcome, because a partial run
+        # that says how far it got is worth more than a full run of 429s.
         trial = None
         for attempt in range(7):
             try:
@@ -248,41 +264,44 @@ def main() -> int:
                     break
                 time.sleep(min(2**attempt, 30))
                 continue
+            if getattr(candidate, "quota_exhausted", False):
+                halted = candidate.decline_reason or "daily quota exhausted"
+                break
             if candidate.bucket != "B3_TRANSPORT":
                 trial = candidate
                 break
             if attempt == 6:
-                # Persistent. Record it, and let the guard do its job.
+                # Persistent, but not quota. Record it and let the guard do its
+                # job -- bucket 3 blocks publication by design.
                 trial = candidate
                 print(
                     f"  [{n:3}/{len(items)}] {item.item_id}: persistent transport "
-                    f"failure ({candidate.decline_reason}) — recorded as bucket 3"
+                    f"failure ({candidate.decline_reason}) -- recorded as bucket 3"
                 )
                 break
             time.sleep(min(2**attempt, 30))
+
+        if halted:
+            print(f"\n  stopped at item {n} of {len(items)}: {halted}")
+            break
         if trial is None:
             continue
 
         arm2.append(trial)
+        append_trial(trial, str(arm2_path))
         if args.arm in ("arm1a", "both"):
-            arm1a.append(arm1a_replay(trial, state))
+            replay = arm1a_replay(trial, state)
+            arm1a.append(replay)
+            append_trial(replay, str(arm1a_path))
 
         mark = {"ALLOW": "A", "DENY": "D", "ESCALATE": "E", None: "?"}.get(
             trial.decision, "?"
         )
-        if n % 10 == 0 or n == len(items):
-            el = time.monotonic() - t_start
-            print(
-                f"  [{n:3}/{len(items)}] {el:5.0f}s  last={item.item_id} "
-                f"routed={trial.routed} {mark}"
-            )
-
-    if args.arm in ("arm2", "both"):
-        write_trials(arm2, str(out_dir / "trials.jsonl"))
-    if args.arm in ("arm1a", "both"):
-        ab = out_dir / "ablation"
-        ab.mkdir(exist_ok=True)
-        write_trials(arm1a, str(ab / "trials.jsonl"))
+        el = time.monotonic() - t_start
+        print(
+            f"  [{n:3}/{len(items)}] {el:5.0f}s {item.item_id:<28} "
+            f"oracle={item.oracle.value:<22} routed={trial.routed!s:<22} {mark}"
+        )
 
     manifest = {
         "run_id": run_id,
@@ -296,11 +315,20 @@ def main() -> int:
         "arm1a_trials": len(arm1a),
         "corpus_seal": seal,
         "elapsed_s": round(time.monotonic() - t_start, 1),
+        "halted": halted,
+        "completed": len(arm2),
+        "next_offset": args.offset + len(arm2),
     }
     with (out_dir / "manifest.json").open("w", encoding="utf-8", newline="\n") as fh:
         fh.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
     print(f"\nwrote {len(arm2)} arm2 + {len(arm1a)} arm1a trials -> {out_dir}")
+    if halted:
+        print(f"HALTED: {halted}")
+        print(
+            "resume with: python scripts/run_benchmark.py --offset "
+            f"{args.offset + len(arm2)} --limit 20"
+        )
     print("run `python verify.py` to recompute every number offline.")
     return 0
 

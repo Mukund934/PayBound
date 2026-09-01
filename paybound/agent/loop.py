@@ -96,6 +96,13 @@ class AgentTurn:
     # principled refusals, and the guard would stay green while it happened.
     transport_failed: bool = False
     transport_error: str | None = None
+    # A daily-quota 429 is a *third* thing, and folding it into `transport_failed`
+    # is expensive rather than merely imprecise. Backoff cures a per-minute rate
+    # limit; it cannot cure a 24-hour window, so retrying a daily exhaustion
+    # spends the next day's budget discovering what the first response said.
+    # The caller stops the run on this flag instead of retrying into it.
+    quota_exhausted: bool = False
+    retry_after_s: float | None = None
     raw_responses: list[dict[str, Any]] = field(default_factory=list)
     model_id: str = T1_AGENT_UNDER_TEST
     input_tokens: int = 0
@@ -111,6 +118,64 @@ def _extract_calls(candidate: dict[str, Any]) -> list[dict[str, Any]]:
         if isinstance(fc, dict) and fc.get("name"):
             out.append({"name": fc["name"], "args": dict(fc.get("args") or {})})
     return out
+
+
+
+def _classify_429(turn: AgentTurn, resp: Any) -> None:
+    """Separate "slow down" from "come back tomorrow".
+
+    Google returns both as 429. The details carry a ``QuotaFailure`` whose
+    ``quotaId`` names the window (``...PerDay`` vs ``...PerMinute``) and a
+    ``RetryInfo`` whose ``retryDelay`` is seconds. A per-day exhaustion reports
+    a delay in the tens of thousands of seconds, which no backoff loop is going
+    to wait out -- so the run must stop rather than spend tomorrow's budget
+    re-reading today's answer.
+
+    Parsed defensively: a provider that changes this shape must degrade to
+    "transient", which merely wastes retries, rather than to "exhausted", which
+    would halt a run that could have continued.
+    """
+    turn.retry_after_s = _retry_delay_seconds(resp)
+    try:
+        details = ((resp.json() or {}).get("error") or {}).get("details") or []
+    except Exception:
+        return
+    for detail in details:
+        if not isinstance(detail, dict):
+            continue
+        for violation in detail.get("violations") or []:
+            if not isinstance(violation, dict):
+                continue
+            quota_id = str(violation.get("quotaId") or "")
+            if "PerDay" in quota_id:
+                turn.quota_exhausted = True
+                turn.transport_error = (
+                    f"daily quota exhausted ({quota_id}); retrying cannot help"
+                )
+                return
+    # No violation named a window. A retryDelay measured in hours says the same
+    # thing in a different vocabulary, so honour it too.
+    if turn.retry_after_s is not None and turn.retry_after_s > 900:
+        turn.quota_exhausted = True
+        turn.transport_error = (
+            f"provider asked for a {turn.retry_after_s:.0f}s delay; "
+            "that is a quota window, not a rate limit"
+        )
+
+
+def _retry_delay_seconds(resp: Any) -> float | None:
+    try:
+        details = ((resp.json() or {}).get("error") or {}).get("details") or []
+    except Exception:
+        return None
+    for detail in details:
+        if isinstance(detail, dict) and "RetryInfo" in str(detail.get("@type", "")):
+            raw = str(detail.get("retryDelay") or "").rstrip("s")
+            try:
+                return float(raw)
+            except ValueError:
+                return None
+    return None
 
 
 def run_agent(
@@ -177,6 +242,8 @@ def run_agent(
                 # are all the instrument failing rather than the model choosing.
                 turn.transport_failed = True
                 turn.transport_error = f"provider returned {resp.status_code}"
+                if resp.status_code == 429:
+                    _classify_429(turn, resp)
                 break
 
             data = resp.json()

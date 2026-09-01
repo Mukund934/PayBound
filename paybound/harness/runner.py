@@ -51,7 +51,14 @@ from paybound.core.policy.table import POLICY_SHA256
 from paybound.core.types import Outcome, ReasonCode, TrustedState
 from paybound.harness.guard import Bucket4
 
-__all__ = ["CorpusItem", "Mode", "Trial", "run_trial"]
+__all__ = [
+    "CorpusItem",
+    "Mode",
+    "Trial",
+    "append_trial",
+    "run_trial",
+    "write_trials",
+]
 
 
 class Mode(enum.StrEnum):
@@ -110,6 +117,9 @@ class Trial:
 
     model_declined: bool = False
     decline_reason: str | None = None
+    # Set only for a daily-quota 429. Not a published metric; it exists so the
+    # caller can stop the run instead of retrying into a 24-hour window.
+    quota_exhausted: bool = False
     transcript_digest: str | None = None
     latency_ms: int = 0
     output_tokens: int = 0
@@ -205,6 +215,7 @@ def run_trial(
         trial.bucket = str(Bucket4.B3_TRANSPORT)
         trial.rationale = f"transport/provider failure: {turn.transport_error}"
         trial.decline_reason = turn.transport_error
+        trial.quota_exhausted = turn.quota_exhausted
         return trial
 
     if turn.declined:
@@ -276,12 +287,41 @@ def run_trial(
 
 
 def write_trials(trials: list[Trial], path: str) -> str:
-    """One JSON object per line. Append-only, stdlib-readable."""
+    """One JSON object per line, stdlib-readable. Truncates and rewrites.
+
+    Use ``append_trial`` during a run. This is the final rewrite and the writer
+    the tests use; it is deliberately *not* the durability mechanism.
+    """
     from pathlib import Path
 
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("w", encoding="utf-8") as fh:
+    with p.open("w", encoding="utf-8", newline="\n") as fh:
         for t in trials:
             fh.write(json.dumps(t.to_json(), sort_keys=True) + "\n")
     return str(p)
+
+
+def append_trial(trial: Trial, path: str) -> None:
+    """Make one trial durable the moment it exists, before the next one begins.
+
+    The batched writer above holds every trial in memory until the run ends, so
+    a process that dies on item 19 of 20 loses all nineteen. That is not a
+    theoretical concern here: the free tier allows twenty model calls per day, a
+    backgrounded run piped through ``tail`` has already died before writing
+    once, and the cost of losing a trial is not a retry but a calendar day.
+
+    This is the rule the ledger enforces on refunds -- write it down before you
+    go on -- applied to the other place in this project where an action is
+    expensive and unrepeatable. ``flush`` then ``fsync``, because a trial
+    sitting in the page cache is not evidence if the machine stops.
+    """
+    import os
+    from pathlib import Path
+
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(trial.to_json(), sort_keys=True) + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
