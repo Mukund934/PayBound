@@ -8,19 +8,28 @@ should not have to find any of it themselves.
 
 ---
 
-## 1. Only one refund object was ever created
+## 1. Three refund objects exist, and no benchmark trial created one
 
 The benchmark runs in **`DRY_LEDGER`** mode. Every decision, every precondition
 evaluation and every computed amount is real; the broker halts at the last step
-and commits the exact bytes it would have POSTed, rather than POSTing them.
+with the amount it computed rather than POSTing.
 
-**Exactly one refund exists in Razorpay's ledger** because of this project:
-`rfnd_TWKWib7mcdGJ8m`, ₹1.00 against `pay_TWKVnCHXugGcUo`, created during KG-1
-on 31 Aug 2026. It carries a receipt this codebase minted, so it is attributable
-without labelling.
+Three refunds exist in Razorpay's test ledger because of this project,
+**₹2,501.00 in total**, and none of them came from a benchmark trial:
 
-So the claim *"a refund object exists in a real processor's ledger"* is true of
-**one** object, not of the corpus. Every trial-level number is a **decision-level**
+| Refund | Amount | Origin |
+|---|---|---|
+| `rfnd_TWKWib7mcdGJ8m` | ₹1.00 | KG-1 feasibility gate, 31 Aug |
+| `rfnd_TWOypP4lLU9Yg8` | ₹1.00 | minted by the live aggregate-bound test (`pytest -m live`) |
+| `rfnd_TXFL2WLlENbzRG` | ₹2,499.00 | the executor, on a real duplicate pair, 2 Sep |
+
+The second grows by one each time anyone runs `pytest -m live`, which is not in
+the default suite. This section said "exactly one" until 3 Sep, which was true
+when written and understated the project's own headline result by ₹2,499 by the
+time it mattered.
+
+So *"a refund object exists in a real processor's ledger"* is true of **three**
+objects, not of the corpus. Every trial-level number is a **decision-level**
 quantity. The distinction is on every trial row (`mode: DRY_LEDGER`) and in the
 report, and it is not blurred anywhere.
 
@@ -73,6 +82,32 @@ other direction:
   instruction), 25 of 70, declared **0 by construction in advance**: no model of
   any tier can put an amount into a schema with no amount field. Every
   benign-corpus metric, which has no adversary in it. Every invariant.
+
+## 3b. What is written and unit-tested but has no production caller
+
+Named here rather than left to be discovered, because the difference between
+"built" and "wired" is exactly what this project keeps catching in itself.
+
+- **`rail/reconcile.py::reconcile_on_boot`** — boot reconciliation. Written,
+  unit-tested by 197 fault injections, and called by nothing at runtime.
+  At-most-once on the live path therefore rests on the fresh re-read of the
+  refunds collection in `preflight_refund_total`, not on crash recovery.
+- **`rail/client.py::list_refunds_window`** and the FOREIGN-refund cross-check
+  — no callers.
+- **`Mode.EXECUTE` inside `harness/runner.py`** — still not wired. Real
+  execution runs through `scripts/execute_one.py`, which constructs
+  `LedgerExecutor` directly. The refund really was executed; the *harness* mode
+  was not the thing that executed it, and an earlier commit message blurred
+  those two.
+- **The capability layer on the measured path.** `run_trial` builds handles as
+  `f"cap_w_{case_id}"` rather than calling `mint_case_capabilities`, because a
+  corpus item has no `pay_` id to bind a capability to. The capability model is
+  exercised by the fault suite, the 648-assertion arm and the live execution —
+  **not** by the DRY_LEDGER trials the published rates come from.
+
+None of these change a published number. All of them would take code plus new
+evidence to close, and disclosing them is worth more two days out than a rushed
+wiring commit.
 
 ## 4. The model-in-loop numbers have a small denominator
 
@@ -206,8 +241,12 @@ unreachable**, rather than rendered as three bars of which one is a copy.
 
 ## 10. n = 150 items is small
 
-Per-class denominators are 10–20. Wilson intervals are wide and are printed with
-every rate. `n` is **item-level**; trial counts are never reported as `n`.
+Per-class denominators are 10–20. Every non-zero rate prints a Wilson interval
+and every zero prints a rule-of-three upper bound, so no point estimate appears
+without its uncertainty. Until 3 Sep only the zeros were bounded, which meant
+the control arm's damaging `50.0% (1/2)` printed bare beside our own bounded
+`0.0% (0/2)` — an asymmetry running in our favour. `n` is **item-level**; trial
+counts are never reported as `n`.
 
 ## 11. No claim of novelty
 

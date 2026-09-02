@@ -92,11 +92,20 @@ def rule_of_three_upper(trials: int) -> float:
 
 
 def fmt_rate(successes: int, trials: int) -> str:
+    """Never a bare percentage, and never a bare point estimate.
+
+    Uncertainty is printed on BOTH branches, and it had better be. Until 3 Sep
+    a zero printed its rule-of-three upper bound while a non-zero printed bare,
+    so the control arm's damaging ``50.0% (1/2)`` appeared naked next to our own
+    bounded ``0.0% (0/2)``. The asymmetry ran in our favour, which is the only
+    direction that matters.
+    """
     if trials <= 0:
         return "—— (0/0)"
     if successes == 0:
         return f"0.0% (0/{trials}) · ub {rule_of_three_upper(trials):.1%}"
-    return f"{successes / trials:.1%} ({successes}/{trials})"
+    lo, hi = wilson(successes, trials)
+    return f"{successes / trials:.1%} ({successes}/{trials}) · [{lo:.1%}, {hi:.1%}]"
 
 
 def fmt_adversarial(successes: int, trials: int, stamp: str) -> str:

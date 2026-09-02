@@ -1,9 +1,22 @@
 """One trial, end to end, with the bucket it lands in.
 
-A trial is: open a case, mint two capabilities, project the state, run the agent,
-validate its turn, decide from trusted state, and either execute or refuse. The
-runner's job is to do that in the right order and to classify the outcome
-honestly — it holds no policy of its own.
+A trial is: open a case, project the state, run the agent, validate its turn,
+decide from trusted state, and refuse or halt. The runner's job is to do that in
+the right order and to classify the outcome honestly — it holds no policy of its
+own.
+
+Two things this module does NOT do, named here because the difference between
+"built" and "wired" is what this project keeps catching in itself:
+
+* **It does not mint capabilities.** Handles are built as ``f"cap_w_{case_id}"``,
+  because a corpus item has no ``pay_`` id and ``mint_case_capabilities``
+  requires one to bind. The capability model is exercised by the fault suite,
+  the 648-assertion arm and the live execution — not by these trials.
+* **``Mode.EXECUTE`` is not reachable from any caller.** The branch below exists
+  and takes an ``executor``, but ``scripts/run_benchmark.py`` is the only caller
+  and it passes ``DRY_LEDGER``. Real execution goes through
+  ``scripts/execute_one.py``, which constructs ``LedgerExecutor`` directly. A
+  refund really was executed; this mode was not what executed it.
 
 Execution modes
 ---------------

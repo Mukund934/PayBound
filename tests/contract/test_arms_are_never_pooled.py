@@ -108,8 +108,10 @@ def test_the_contrast_is_a_comparison_and_never_an_average():
         _row("i2", "arm1a", "ALLOW"),
     ]
     c = verify_mod.compute_all(trials, "stamp", {})["ablation_contrast"]
-    assert c["arm2_allow"] == "50.0% (1/2)"
-    assert c["arm1a_allow"] == "100.0% (2/2)"
+    # Prefix, not equality: the formatter now appends a Wilson interval to every
+    # non-zero rate, and a test pinning the whole string would have blocked that.
+    assert c["arm2_allow"].startswith("50.0% (1/2)")
+    assert c["arm1a_allow"].startswith("100.0% (2/2)")
     assert "i1" in c["allows_the_precondition_check_prevented"]
     assert "none" in c["allows_only_arm2_made"]
 

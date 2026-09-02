@@ -139,8 +139,35 @@ def test_i09_attacker_tier_parity_is_deliberately_not_a_guard_condition():
 
 
 def test_no_rate_can_render_without_its_denominator():
-    assert fmt_rate(19, 40) == "47.5% (19/40)"
+    """The property, not the exact string.
+
+    This asserted `fmt_rate(19, 40) == "47.5% (19/40)"` and so pinned the *absence*
+    of an interval on non-zero rates -- the very asymmetry that let a damaging
+    50.0% (1/2) print bare beside a bounded 0.0% (0/2). A test that pins a
+    literal defends whatever the literal happens to say, including its omissions.
+    """
+    out = fmt_rate(19, 40)
+    assert "47.5%" in out and "(19/40)" in out
     assert "(0/45)" in fmt_rate(0, 45)
+
+
+def test_every_rate_carries_its_uncertainty_not_only_the_zeros():
+    """Zeros got a bound; non-zeros printed bare. That ran in our favour.
+
+    An attack-success of 0/8 showed its rule-of-three ceiling while the control
+    arm's 1/2 showed nothing, so the flattering cell was the qualified one.
+    Both branches now carry uncertainty.
+    """
+    zero = fmt_rate(0, 8)
+    assert "ub" in zero, "a zero must carry its rule-of-three upper bound"
+
+    for successes, trials in ((1, 2), (2, 8), (19, 40), (3, 3)):
+        out = fmt_rate(successes, trials)
+        assert f"({successes}/{trials})" in out, f"{out!r} lost its denominator"
+        assert "[" in out and "%," in out, (
+            f"{out!r} is a bare point estimate; every non-zero rate must print "
+            "its Wilson interval"
+        )
 
 
 def test_a_zero_renders_with_its_rule_of_three_upper_bound():

@@ -16,6 +16,98 @@ Rules, so the entries are usable later:
 
 ---
 
+## The seal did not reproduce on a fresh Windows clone — 2 Sep
+
+**Found by:** the mandatory fresh-clone test, and by nothing else.
+**Class:** newline translation. Fourth instance.
+
+`test_the_corpus_regenerates_byte_for_byte` failed on a clean clone and passed
+everywhere locally. `.gitattributes` pins the sealed artifacts to LF but not the
+Python sources, so `* text=auto` plus Windows autocrlf hands a clone CRLF copies
+of the generators. `prose.py` arrives 197 bytes larger — exactly one CR per line
+— and `generator_sha256` moves.
+
+CI run #1 on the public remote was red for the *same* defect, mirrored: the seal
+had been written against a CRLF tree and Linux checks out LF. Two independent
+detectors, opposite platforms, one cause.
+
+Every local run agreed with itself, because the tree that wrote the seal had LF.
+That is the whole reason a fresh-clone test is mandatory rather than advisory.
+
+**Fix:** `_source_sha` normalises before hashing. A `.gitattributes` pin would
+have worked only until the next file the seal hashes was forgotten; normalising
+cannot be forgotten. Corpus bytes were never affected — `benign_jsonl_sha256` is
+byte-identical — so no published number moved.
+
+## Mode.EXECUTE was documented and unreachable — 2 Sep
+
+**Class:** a claim standing where an implementation should be. Fourth instance.
+
+`runner.py` promised "the broker POSTs, a real refund object appears in
+Razorpay's ledger". `executor` defaulted to `None` and nothing ever passed one.
+The mechanical reason no one noticed: `run_trial` handed the executor four
+arguments, none of which identified the case, the payment or the capability, so
+no real executor *could* have been written against it.
+
+Fixed by writing `harness/execute.py` and running it against Razorpay: two real
+₹2,499 captures 330 seconds apart, `rfnd_TXFL2WLlENbzRG` created, and a second
+attempt refused after reading `249900` back from the live API — zero outbound
+POSTs.
+
+## The fix commit claimed more than it fixed — 3 Sep
+
+**Class:** the same one. Fifth instance, inside the commit that fixed the
+fourth.
+
+Execution really happened, but it happened through `scripts/execute_one.py`,
+which constructs `LedgerExecutor` directly. **`Mode.EXECUTE` inside `run_trial`
+is still not wired** — its only caller passes `DRY_LEDGER`. The commit message
+said "EXECUTE mode has now actually run", which conflated the rail path with the
+harness mode. The rail claim was true; the harness claim was not.
+
+Found by a hostile review pass reading the repository cold, not by a test.
+
+**Fix:** the honest one, not the impressive one. Rewiring the branch needs a
+signature change, real capability minting and fresh evidence, two days from
+submission — that is how a red suite ships. Instead `runner.py` now states
+plainly that it does not mint capabilities and that `Mode.EXECUTE` is
+unreachable, and `LIMITS.md` §3b lists every component that is written and
+unit-tested but has no production caller: boot reconciliation, the orphan
+cross-check, the FOREIGN classifier, and the capability layer on the measured
+path.
+
+## The README kept a claim its own incident log had retracted — 3 Sep
+
+**Class:** the same one again, on the highest-traffic page.
+
+`README.md`'s summary table still credited the run's adversary to `SWEEP-R` —
+the campaign this log describes above as never having run. The remediation
+commit edited `README.md` by 69 lines and walked past the row.
+
+Worse: a test fails the build if `attacker_stamp()` contains the substring
+"sweep" while the campaign's status is not `RUN`. The README asserted in prose
+the exact string the suite fails the build for in code, and no test reads prose.
+
+`grep -c "corpus_attack_items" README.md` returned **0**, so the README's only
+answer to "who was the adversary" was the wrong one.
+
+**Also found in the same pass**, all verified before fixing: `LIMITS.md` said
+exactly one refund object existed when three do (₹2,501 total); the README said
+`verify.py` exits 2 in one section and 0 in another; the test count read 268
+against a suite of 1531; "nothing fixtured" described a case with one fixtured
+precondition, and that one is the only fixtured fact that changes the outcome;
+and uncertainty was printed on every zero and no non-zero, so the control arm's
+damaging rate printed bare beside our own bounded one.
+
+**What this run says about the pattern.** Five instances, and the fourth and
+fifth were introduced *while fixing* the third and fourth. The defect is not
+carelessness about facts — every one of these was true when written. It is that
+prose has no consumer, so nothing re-derives it when the thing beneath it moves.
+The guards added since — recomputing documented counts, resolving every
+`file.py:NN` citation, requiring a named artifact to exist — all work by giving a
+sentence a consumer. The ones that got through are the sentences that still have
+none.
+
 ## A campaign name in published evidence, describing a campaign that did not exist
 
 **Found:** 1 Sep 2026, surveying remaining work after the first benchmark run.

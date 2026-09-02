@@ -74,14 +74,21 @@ def fmt_rate(successes: int, trials: int) -> str:
 
     A denominator-free percentage is the single easiest way for a small result
     to be quoted as a large one, so this function has no mode that omits it.
+
+    Uncertainty is printed on BOTH branches, and it had better be. Until 3 Sep
+    a zero printed its rule-of-three upper bound while a non-zero printed bare,
+    so the control arm's damaging ``50.0% (1/2)`` appeared naked next to our own
+    bounded ``0.0% (0/2)``. The asymmetry ran in our favour, which is the only
+    direction that matters.
     """
     if trials <= 0:
         return "—— (0/0)"
     if successes == 0:
         ub = rule_of_three_upper(trials)
         return f"0.0% (0/{trials}) · ub {ub:.1%}"
-    return f"{successes / trials:.1%} ({successes}/{trials})"
-
+    # Interval.__str__ already renders "[lo, hi]"; verify.py builds the same
+    # string from raw floats because it may not import this module.
+    return f"{successes / trials:.1%} ({successes}/{trials}) · {wilson(successes, trials)}"
 
 def fmt_adversarial(successes: int, trials: int, attacker_stamp: str) -> str:
     """An adversarial rate with the attacker welded into the same string.

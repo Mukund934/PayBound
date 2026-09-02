@@ -280,3 +280,77 @@ def test_the_prereg_predates_every_committed_trial():
         assert int(prereg) < int(added), (
             f"PREREG.md was committed after {t}, so it did not pre-register anything"
         )
+
+
+def test_no_document_names_sweep_r_as_the_adversary_while_it_has_not_run():
+    """The fourth instance, given a consumer.
+
+    README.md's summary table credited the run's adversary to SWEEP-R while
+    INCIDENTS.md described that exact substitution as the repository's
+    highest-severity defect, ATTACKER_PROVENANCE stamped BUILT_NOT_RUN, and
+    verify.py printed the real adversary. The remediation commit edited that
+    file by 69 lines and walked past the row.
+
+    A sibling test already fails the build if ``attacker_stamp()`` contains
+    "sweep" while the status is not RUN. The README asserted in prose the exact
+    string the suite fails the build for in code -- and no test read prose.
+    This one does.
+    """
+    from paybound.agent.models import ATTACKER_PROVENANCE
+
+    if ATTACKER_PROVENANCE["sweep_r_status"] == "RUN":
+        return
+
+    adversary_line = re.compile(r"^\s*\|\s*Adversary\s*\|(.+)\|\s*$", re.I | re.M)
+    for doc in ("README.md", "LIMITS.md", "AGENTS.md", "IMPLEMENTATION_CONTRACT.md"):
+        path = REPO_ROOT / doc
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for cell in adversary_line.findall(text):
+            assert "sweep-r" not in cell.lower() or "not_run" in cell.lower(), (
+                f"{doc} names SWEEP-R as the adversary, but its status is "
+                f"{ATTACKER_PROVENANCE['sweep_r_status']}. That is the claim "
+                "INCIDENTS.md already retracted."
+            )
+
+
+def test_the_readme_names_the_real_adversary_somewhere():
+    """Retracting the wrong answer is not the same as giving the right one.
+
+    After the bad row was found, ``grep -c corpus_attack_items README.md``
+    returned 0 -- the README's only answer to "who was the adversary" was the
+    wrong one, and deleting it would have left no answer at all.
+    """
+    from paybound.agent.models import ATTACKER_PROVENANCE
+
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert ATTACKER_PROVENANCE["adversary_of_record"] in readme, (
+        "the README never names the adversary the trials actually ran against"
+    )
+
+
+def test_limits_does_not_undercount_the_refunds_that_exist():
+    """LIMITS said "exactly one refund exists" while three did.
+
+    It understated the project's own headline result by Rs 2,499, in the
+    document the README points at as the honesty backstop. Counted from
+    evidence rather than from prose, because prose is what drifted.
+    """
+    import re as _re
+
+    ids = set()
+    for f in (REPO_ROOT / "evidence").rglob("*.json"):
+        text = f.read_text(encoding="utf-8", errors="ignore")
+        ids |= set(_re.findall(r"rfnd_[A-Za-z0-9]+", text))
+    if not ids:
+        pytest.skip("no refund objects in evidence")
+
+    limits = (REPO_ROOT / "LIMITS.md").read_text(encoding="utf-8")
+    assert "Exactly one refund exists" not in limits, (
+        f"LIMITS claims one refund; {len(ids)} exist in evidence/"
+    )
+    for ident in ids:
+        assert ident in limits, (
+            f"{ident} exists in evidence/ but LIMITS.md does not account for it"
+        )
