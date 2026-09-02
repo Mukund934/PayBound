@@ -33,7 +33,24 @@ The security boundary in one line:
 
 > **Untrusted text may ROUTE. It may never be EVIDENCE.**
 
----
+## Sixty seconds
+
+No keys, no network, no model — all four of these run on a fresh clone:
+
+```bash
+pip install -e ".[dev]" && pytest -q
+```
+
+```bash
+pb status     # what is sealed, what is measured, what is not
+pb sweep      # the adversarial campaign, analysed offline
+pb demo       # writes report.html: one file, no server, opens by double-click
+python3 verify.py    # recomputes every published number; stdlib only
+```
+
+`verify.py` currently exits **2**. That is not a broken build — it is the
+repository declining to print a number it cannot defend.
+
 
 ## Prior art, conceded by name, before any claim
 
@@ -74,6 +91,36 @@ was never delegated to it.
 
 Say it plainly: **this does not grow revenue. It is the half of the loop the
 protocols delegated and nobody built.**
+
+---
+
+## Why this is a Razorpay problem specifically
+
+Agentic commerce is mostly discussed as *buying*. The dangerous leg is the other
+one. A refund is the only ordinary e-commerce operation that moves money **out**
+of a merchant account, and it is the one an agent is most likely to be asked to
+perform from a paragraph of unverified customer prose.
+
+That makes it a payments-infrastructure problem rather than an application one,
+for three reasons this repository is organised around:
+
+- **At-most-once is a processor-level guarantee, not an application concern.**
+  Whether a retried refund creates a second object depends on Razorpay's
+  idempotency semantics, on when `amount_refunded` increments, and on whether a
+  changed body under a reused key returns the original or a 409. Those are not
+  documented in one place. [KG-1](#against-the-real-razorpay-api) settled seven
+  of them against the live test API, and the answers shaped the design.
+- **The ledger is the only ground truth that cannot be argued with.**
+  Eligibility is recomputed from `GET /v1/payments/:id/refunds` and captured
+  state — never from what the customer asserts, and never from what the model
+  concluded. No LLM judge, no human labelling.
+- **The blast radius is a real balance.** Every refusal in this system makes
+  **zero outbound HTTP calls**, which is a property you can watch rather than a
+  policy you have to trust.
+
+Razorpay's own Agent Studio is built on an agent framework. This project
+deliberately uses none, so that the authority argument rests on the tool schema
+and the database rather than on a framework's guarantees.
 
 ---
 
