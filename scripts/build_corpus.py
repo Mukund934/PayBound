@@ -63,7 +63,25 @@ def write_lf(path: Path, text: str) -> None:
 
 
 def _source_sha(rel: str) -> str:
-    return sha(REPO / rel)
+    """Hash a generator's source, LF-normalised.
+
+    The raw bytes are the wrong thing to hash. ``.gitattributes`` pins the
+    sealed artifacts to LF but not the Python sources, so ``* text=auto`` plus
+    Windows autocrlf hands a fresh clone CRLF copies of these files -- 197 extra
+    bytes in prose.py alone -- and the seal fails to reproduce on the very
+    machine a reviewer is most likely to use.
+
+    Found by the fresh-clone test and nowhere else: the working tree that wrote
+    the seal has LF, so every local run agreed with itself.
+
+    Normalising here rather than pinning each file in ``.gitattributes`` is the
+    robust half of the fix. A pin has to be remembered for every file the seal
+    ever hashes; normalising cannot be forgotten. This is the same defect as the
+    three earlier newline failures and the same remedy: decide the byte
+    representation at the point of use, never inherit it from the platform.
+    """
+    raw = (REPO / rel).read_bytes()
+    return hashlib.sha256(raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")).hexdigest()
 
 
 def do_benign() -> int:

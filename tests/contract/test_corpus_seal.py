@@ -60,13 +60,68 @@ def test_corpus_files_are_lf_only():
         assert b"\r\n" not in path.read_bytes(), f"{path.name} contains CRLF"
 
 
+def _source_sha_of_builder():
+    """The builder's own hasher, imported rather than reimplemented.
+
+    This test used to hash raw bytes while the builder hashed LF-normalised
+    ones, so it failed on a machine whose checkout had CRLF and passed
+    everywhere else. Two derivations of one number is how a check and the thing
+    it checks come to disagree -- so there is now one derivation and the test
+    imports it.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "build_corpus_mod", REPO_ROOT / "scripts" / "build_corpus.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod._source_sha
+
+
 def test_seal_pins_the_generator_not_only_the_output():
     """Two corpora with identical items but different generators are not the
     same experiment, and a reviewer must be able to tell."""
     gen = _seal()["generator_sha256"]
     for name in ("scenarios.py", "prose.py", "build.py", "types.py"):
         assert name in gen and len(gen[name]) == 64
-    assert gen["types.py"] == _sha(REPO_ROOT / "paybound" / "core" / "types.py")
+    source_sha = _source_sha_of_builder()
+    assert gen["types.py"] == source_sha("paybound/core/types.py")
+
+
+def test_the_generator_hash_does_not_depend_on_the_platform():
+    """The fresh-clone failure, pinned.
+
+    `.gitattributes` pins the sealed artifacts to LF but not the Python sources,
+    so `* text=auto` plus Windows autocrlf hands a clone CRLF copies of the
+    generators -- 197 extra bytes in prose.py alone -- and the seal fails to
+    reproduce on the machine a reviewer is most likely to use. Every local run
+    agreed with itself, because the tree that wrote the seal had LF.
+
+    Asserted by hashing a CRLF and an LF version of the same content and
+    requiring the same digest.
+    """
+    import hashlib as _h
+    import tempfile
+
+    source_sha = _source_sha_of_builder()
+    body = "x = 1\ny = 2\nz = 3\n"
+    with tempfile.TemporaryDirectory(dir=REPO_ROOT) as tmp:
+        d = Path(tmp)
+        lf, crlf = d / "lf.py", d / "crlf.py"
+        lf.write_bytes(body.encode())
+        crlf.write_bytes(body.replace("\n", "\r\n").encode())
+        assert lf.read_bytes() != crlf.read_bytes(), "the fixture is not exercising CRLF"
+
+        def rel(path: Path) -> str:
+            return path.relative_to(REPO_ROOT).as_posix()
+
+        assert source_sha(rel(lf)) == source_sha(rel(crlf)), (
+            "the generator hash still depends on line endings, so the seal will "
+            "not reproduce on a fresh Windows clone"
+        )
+        # And it is still a real hash of the content, not a constant.
+        assert source_sha(rel(lf)) == _h.sha256(body.encode()).hexdigest()
 
 
 def test_seal_pins_the_policy_hash():
