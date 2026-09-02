@@ -184,6 +184,28 @@ KG-1, executed 31 Aug 2026 against `rzp_test_` keys. Raw responses in
 The refund carries a receipt this codebase minted (`pbr_` + ULID), so every
 object is attributable without a labelling step.
 
+### The policy moved real money, and refused to do it twice
+
+`rfnd_TXFL2WLlENbzRG` — **₹2,499.00**, in Razorpay's test-mode ledger, against
+the later of two genuine ₹2,499 captures 330 seconds apart.
+
+Nothing fixtured. Every `DUPLICATE_CHARGE` precondition was re-verified from
+live API data — `matching_siblings: 1`, real capture timestamps, the real
+refunds collection — and the amount came from
+`core/policy/amount.py::full_payment`, not from any model. The receipt
+`pbr_01M1HHQAYCFEZC015CS8Y2CDB2` was minted by this codebase, so the object is
+attributable without a labelling step.
+
+Run it again and it is **refused, in the right place**: `nothing_refunded_yet`
+reads `249900` back from the live API, evaluates FALSE, and the broker escalates
+with **zero outbound POSTs**. At-most-once against a real processor, not a mock.
+
+```bash
+python scripts/execute_one.py --payment pay_X --sibling pay_Y --route DUPLICATE_CHARGE
+```
+
+Raw request and read-back in [`evidence/execute/`](evidence/execute/).
+
 ### Measured so far — 8 of 150 items
 
 `python3 verify.py` exits **0**. Every figure below is recomputed by it from

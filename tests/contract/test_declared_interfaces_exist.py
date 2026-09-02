@@ -164,3 +164,47 @@ def test_every_pb_verb_a_document_names_actually_runs(doc):
             capture_output=True, text=True, cwd=REPO_ROOT, timeout=120,
         )
         assert proc.returncode == 0, f"{doc} names `pb {verb}` but it does not run"
+
+
+def test_every_file_line_citation_in_a_document_resolves():
+    """A `path.py:NN` in prose is an instruction to look somewhere. It must be right.
+
+    The locked demo spec put the hero beat's camera on
+    ``core/policy/table.py:41`` -- which is ``__all__ = [``, an export list, and
+    not the amount logic at all. The real function for the hero case
+    (DUPLICATE_CHARGE) is ``full_payment`` in ``core/policy/amount.py``. Line 41
+    of *that* file is ``line_price_difference``, a different clause entirely, so
+    the citation was wrong twice over and would have been discovered on camera.
+
+    Checked structurally: the file must exist, the line must exist, and when the
+    citation names a function, that function must be defined at or near it.
+    """
+    import ast
+
+    pattern = re.compile(r"([a-z_][a-z_0-9/]*\.py):(\d+)(?:\s+(\w+)\(\))?")
+    for doc in (*DOCS, "IMPLEMENTATION_CONTRACT.md"):
+        path = REPO_ROOT / doc
+        if not path.is_file():
+            continue
+        for rel, lineno, func in pattern.findall(path.read_text(encoding="utf-8")):
+            candidates = [REPO_ROOT / rel, REPO_ROOT / "paybound" / rel]
+            target = next((c for c in candidates if c.is_file()), None)
+            assert target is not None, f"{doc} cites {rel}, which does not exist"
+
+            lines = target.read_text(encoding="utf-8").splitlines()
+            n = int(lineno)
+            assert 1 <= n <= len(lines), (
+                f"{doc} cites {rel}:{n} but the file has {len(lines)} lines"
+            )
+            if not func:
+                continue
+            tree = ast.parse(target.read_text(encoding="utf-8"))
+            defs = {
+                node.name: node.lineno
+                for node in ast.walk(tree)
+                if isinstance(node, ast.FunctionDef)
+            }
+            assert func in defs, f"{doc} cites {rel}:{n} {func}(), which is not defined there"
+            assert abs(defs[func] - n) <= 2, (
+                f"{doc} points at {rel}:{n} for {func}(), which is at line {defs[func]}"
+            )

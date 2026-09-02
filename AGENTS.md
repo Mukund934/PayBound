@@ -166,8 +166,9 @@ declared, and that absence is the entire security argument.
 
 ## Where the money actually moves
 
-Exactly one place: `rail/refunds.py::execute_refund`, reached only from the
-broker on `ALLOW`, only after the intent is fsynced, and only once per intent —
+Exactly one place: `rail/refunds.py::execute_refund`, reached only through
+`harness/execute.py::LedgerExecutor`, only on `ALLOW`, only after the intent is
+fsynced, and only once per intent —
 `attempts <= 1` is a CHECK constraint, so a retry is a database error rather
 than a policy decision.
 

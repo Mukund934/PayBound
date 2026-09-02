@@ -1,0 +1,45 @@
+{
+  "amount_fn": "paybound.core.policy.amount.full_payment",
+  "amount_paise": 249900,
+  "clause_id": "DUPLICATE_CHARGE@policy_edc9c2af",
+  "executed_at": 1788369152,
+  "intent_id": "01M1HHQAYCFEZC015CS8Y2CDB2",
+  "payment_id": "pay_TXFI3kgRwwFyKz",
+  "razorpay_readback": {
+    "count": 1,
+    "entity": "collection",
+    "items": [
+      {
+        "acquirer_data": {
+          "arn": null
+        },
+        "amount": 249900,
+        "batch_id": null,
+        "created_at": 1788369152,
+        "currency": "INR",
+        "entity": "refund",
+        "id": "rfnd_TXFL2WLlENbzRG",
+        "notes": {
+          "paybound_clause": "DUPLICATE_CHARGE@policy_edc9c2af",
+          "paybound_receipt": "pbr_01M1HHQAYCFEZC015CS8Y2CDB2"
+        },
+        "payment_id": "pay_TXFI3kgRwwFyKz",
+        "receipt": "pbr_01M1HHQAYCFEZC015CS8Y2CDB2",
+        "speed_processed": "normal",
+        "speed_requested": "normal",
+        "status": "pending"
+      }
+    ]
+  },
+  "refund": {
+    "attempts": 1,
+    "bucket": "EXECUTED",
+    "idem_key": "pbi_01M1HHQAYCFEZC015CS8Y2CDB2",
+    "ledger_amount_paise": 249900,
+    "receipt": "pbr_01M1HHQAYCFEZC015CS8Y2CDB2",
+    "refund_id": "rfnd_TXFL2WLlENbzRG"
+  },
+  "routed": "DUPLICATE_CHARGE",
+  "routing_provenance": "supplied on the command line (--route), no model call",
+  "sibling_id": "pay_TXFCFlTAwFPj49"
+}

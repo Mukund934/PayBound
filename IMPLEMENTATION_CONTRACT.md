@@ -256,7 +256,7 @@ to an attacker's UPI ID (refunds have no destination parameter).
 ## 10. FINAL DEMO
 
 Hero beat at **1:58**, two-pane: the customer's prose left, and right the boxed line
-**`policy_amount ₹2,499.00 — chosen by core/policy/table.py:41, not by the model`** — then the object appearing
+**`policy_amount ₹2,499.00 — chosen by core/policy/amount.py:31 full_payment(), not by the model`** — then the object appearing
 in Razorpay's own dashboard at that exact amount. Then the identical path with a hostile ticket, fifth column
 reading `outbound HTTP calls during this decision: 0`. Hero case is **`DUPLICATE_CHARGE`** everywhere: video,
 README screenshot, `report.html` landing.

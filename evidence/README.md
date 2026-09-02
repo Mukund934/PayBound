@@ -5,7 +5,8 @@ more than the contents. Read this before reading any file here.
 
 | Directory | Status | Counts toward a published number? |
 |---|---|---|
-| `kg1/` | **Real, and the strongest artifact here** | Not a rate. A settled fact. |
+| `kg1/` | **Real.** The Razorpay feasibility gate | Not a rate. A settled fact. |
+| `execute/` | **Real.** A refund the policy authorised, in Razorpay's ledger | Not a rate. A settled fact. |
 | `run_1788359829/` | **LIVE.** 8 model-in-loop trials, arm2 + arm1a | **Yes.** Every published rate comes from here. |
 | `run_1788265241/` | **SUPERSEDED** — see `SUPERSEDED.json` inside it | **No.** Excluded by `verify.py`, which says so on every run. |
 | `smoke/` | **Not a result.** A pipeline check. | **No.** Never was. |
@@ -29,6 +30,31 @@ increments, `PATCH notes` being REPLACE rather than merge, and the 512-character
 
 This is evidence of a **capability**, not a rate. It has no denominator and
 claims none.
+
+## `execute/` — the policy moved real money
+
+`rfnd_TXFL2WLlENbzRG`, **₹2,499.00**, against `pay_TXFI3kgRwwFyKz` — the later
+of two genuine ₹2,499 captures 330 seconds apart in Razorpay's test ledger.
+
+Nothing here is fixtured. All four `DUPLICATE_CHARGE` preconditions were
+re-verified from live API data: `matching_siblings: 1`, `is_later_of_duplicate_pair`
+comparing real capture timestamps, `nothing_refunded_yet` summing the real
+refunds collection. The amount was computed by
+`core/policy/amount.py::full_payment` and the receipt
+`pbr_01M1HHQAYCFEZC015CS8Y2CDB2` was minted by this codebase, so the object is
+attributable without a labelling step.
+
+**Running it a second time is refused, and refused in the right place.**
+`nothing_refunded_yet` read `249900` back from the live API, evaluated FALSE,
+and the broker escalated with **zero outbound POSTs**. That is at-most-once
+demonstrated against a real processor rather than a mock.
+
+The routing for this execution was supplied on the command line rather than by
+the model — the free tier was exhausted — and `routing_provenance` in the record
+says so. It changes nothing about the authority argument: the amount, the
+preconditions, the single-use capability and the write-ahead intent are all
+identical either way. It does mean this particular execution did not exercise
+the router, which the corpus run does.
 
 ## `run_1788359829/` — the live run
 

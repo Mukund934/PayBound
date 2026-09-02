@@ -159,6 +159,7 @@ def run_trial(
     mode: Mode = Mode.DRY_LEDGER,
     case_id: str | None = None,
     executor: Any = None,
+    payment_id: str | None = None,
 ) -> Trial:
     """Run one corpus item to a decision, and optionally to a refund.
 
@@ -166,7 +167,17 @@ def run_trial(
     intent log and the rail. It is injected rather than imported so this module
     stays testable without credentials and so the runner cannot accidentally
     acquire a second path to money.
+
+    ``payment_id`` is required for ``EXECUTE`` and meaningless otherwise. It is
+    a parameter rather than a field of ``state`` because ``PaymentFacts``
+    carries no payment id by design -- nothing downstream of the model may name
+    a payment, and the binding travels with the capability instead.
     """
+    if mode is Mode.EXECUTE and executor is not None and not payment_id:
+        raise ValueError(
+            "EXECUTE mode needs a payment_id: trusted state does not carry one, "
+            "by design, and the executor cannot invent the binding."
+        )
     case_id = case_id or f"case_{item.item_id}"
     span = UntrustedSpan(
         span_id=f"spn_{item.item_id}", channel="support_ticket", text=item.prose
@@ -274,8 +285,31 @@ def run_trial(
         trial.rationale += " · DRY_LEDGER: halted with the computed amount"
         return trial
 
+    # The executor gets everything it needs to open an intent and reach the
+    # rail, and nothing it could use to make a decision. It was previously
+    # handed four arguments, none of which identified the case, the payment or
+    # the capability -- so no real executor could have been written against it,
+    # which is one reason Mode.EXECUTE was documented and unreachable for the
+    # whole life of the project.
+    #
+    # intent_id is minted HERE and exactly once. receipt and idem_key are pure
+    # functions of it, so an executor cannot invent a second identity for the
+    # same intent.
+    from paybound.ids import new_intent_id
+
     outcome = executor(
-        trial=trial, state=state, amount_paise=decision.amount_paise, clause_id=decision.clause_id
+        trial=trial,
+        state=state,
+        amount_paise=decision.amount_paise,
+        clause_id=decision.clause_id,
+        case_id=case_id,
+        # Not read from trusted state: PaymentFacts deliberately carries no
+        # payment id, so that nothing downstream of the model can name a
+        # payment. The binding lives with the capability and is supplied by the
+        # caller that opened the case.
+        payment_id=payment_id,
+        write_token=f"cap_w_{case_id}",
+        intent_id=new_intent_id(),
     )
     trial.outbound_http_posts = 1
     trial.refund_id = outcome.get("refund_id")
