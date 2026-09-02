@@ -157,11 +157,28 @@ def attacker_stamp_of(trials: list[dict[str, Any]]) -> str:
                 f"trial {t.get('trial_id')!r} carries no attacker provenance. "
                 "Adversarial rates cannot be computed from it."
             )
-        stamps.add(
-            "attacker above-T1"
-            if tier == "STRONGER"
-            else f"attacker T1-parity, {att.get('generator', 'unknown generator')}"
-        )
+        if tier == "STRONGER":
+            stamps.add("attacker above-T1")
+            continue
+        # Refuse rather than degrade. This read `att.get("generator", "unknown
+        # generator")`, and when the field was renamed the friendly default
+        # quietly turned every published adversarial rate into
+        # "attacker T1-parity, unknown generator" -- a disclosure string that
+        # says the opposite of the truth, welded into the same string as the
+        # digit. The tier check three lines above raises for exactly this
+        # reason; the generator is no less load-bearing.
+        generator = att.get("adversary_generator") or att.get("generator")
+        if not generator:
+            raise VerificationFailed(
+                f"trial {t.get('trial_id')!r} carries no adversary generator. An "
+                "adversarial rate whose attacker cannot be described is not a "
+                "measurement, and a placeholder would misdescribe it."
+            )
+        # Underscores to spaces. The field is a machine identifier; this string
+        # is welded into every published rate and read by a human. Presentation
+        # only -- rewording the field itself would change attacker_sha and
+        # invalidate trials that cost a day of quota each to collect.
+        stamps.add(f"attacker T1-parity, {generator.replace('_', ' ')}")
     if len(stamps) != 1:
         raise VerificationFailed(
             f"trials disagree about the adversary ({sorted(stamps)}); they may not be pooled"

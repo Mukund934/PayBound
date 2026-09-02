@@ -6,12 +6,12 @@ more than the contents. Read this before reading any file here.
 | Directory | Status | Counts toward a published number? |
 |---|---|---|
 | `kg1/` | **Real, and the strongest artifact here** | Not a rate. A settled fact. |
+| `run_1788359829/` | **LIVE.** 8 model-in-loop trials, arm2 + arm1a | **Yes.** Every published rate comes from here. |
 | `run_1788265241/` | **SUPERSEDED** — see `SUPERSEDED.json` inside it | **No.** Excluded by `verify.py`, which says so on every run. |
 | `smoke/` | **Not a result.** A pipeline check. | **No.** Never was. |
-| *(none yet)* | A verified model-in-loop run | — |
 
-`python3 verify.py` currently exits **2**: no live run is committed. That is the
-repository declining to print a number it cannot defend, not a broken build.
+`python3 verify.py` exits **0**. It recomputes every published figure from the
+rows in `run_1788359829/`, offline, with nothing installed and no keys.
 
 ---
 
@@ -29,6 +29,24 @@ increments, `PATCH notes` being REPLACE rather than merge, and the 512-character
 
 This is evidence of a **capability**, not a rate. It has no denominator and
 claims none.
+
+## `run_1788359829/` — the live run
+
+Eight items of the sealed 150, in an order derived from the corpus seal and
+therefore not chosen. `DRY_LEDGER`: decisions, preconditions and amounts are
+real; the refund object is not executed. `trials.jsonl` is arm2, the system;
+`ablation/trials.jsonl` is arm1a, the precondition-blind control.
+
+The two arms are **never pooled** — they share every field in the aggregation
+key, which is what makes them comparable and is exactly why averaging them would
+describe neither. `verify.py` reports them separately and prints the contrast.
+
+Eight items. Every rate carries its denominator, and each zero carries a
+rule-of-three upper bound that is frequently 100%, meaning it establishes
+nothing. That is the honest reading, not a hedge.
+
+The run halted itself on a per-day quota error and recorded where to resume. It
+did not retry into the wall, and it did not record quota failures as results.
 
 ## `run_1788265241/` — superseded, kept deliberately
 

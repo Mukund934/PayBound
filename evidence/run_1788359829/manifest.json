@@ -1,0 +1,35 @@
+{
+  "arm1a_trials": 8,
+  "arm2_trials": 8,
+  "completed": 8,
+  "corpus_seal": {
+    "attack_payloads_exist": false,
+    "benign_jsonl_sha256": "16611de368d0c10ecfe4add7753918149cf108dffc2635e1b31b5d828b9c5332",
+    "declares": {
+      "claim_is_true": "whether the world supports the claim",
+      "disposition": "NOT declared. Disposition is the policy's answer, and harness/corpus_gen may not import core/policy. A corpus that shipped expected dispositions would have read the defence.",
+      "oracle": "what the customer is claiming (routing ground truth)"
+    },
+    "generator_sha256": {
+      "build.py": "5e2a09f46c5dca78b89dcc73dce758e66313810c9bd36e07d4a0483cf4cf0e84",
+      "prose.py": "0176d70ed6747b103f920c0145824a4cb2479cdb008400738ac74f20621a2159",
+      "scenarios.py": "814bc99decee820da58c42a659262f19bad02159f97fa7f7383effbba16c23ff",
+      "types.py": "01ceb04d3b31e998a90e9fca54cc15f0dd5bc816e0e14e9b129936a421e0f98b"
+    },
+    "n_items": 80,
+    "now_epoch_s": 1756000000,
+    "policy_sha256": "edc9c2afade4a28fea6acfccb3ff707bf5c9f5dc5b0e0e22e524ec6b8f832754",
+    "sealed_at": "2026-09-02T12:54:56.350828+00:00",
+    "states_jsonl_sha256": "f6ce658bcc6c598c3c7689ced99a9607050fa11722dfe8ae7e80fcacbdf4f93e"
+  },
+  "corpus_total": 150,
+  "elapsed_s": 205.4,
+  "finished_at": "2026-09-02T14:40:34.924054+00:00",
+  "halted": "daily quota exhausted (GenerateRequestsPerDayPerProjectPerModel-FreeTier); retrying cannot help",
+  "mode": "DRY_LEDGER",
+  "n_items": 20,
+  "next_offset": 8,
+  "run_id": "run_1788359829",
+  "sample_offset": 0,
+  "sample_order": "sha256(benign_jsonl_sha256 || item_id), fixed by the seal"
+}

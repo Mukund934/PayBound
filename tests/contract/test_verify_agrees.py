@@ -247,3 +247,64 @@ def test_the_smoke_directory_is_never_verified(tmp_path):
     proc = _run(tmp_path)
     assert proc.returncode == 2
     assert "not a result" in proc.stderr
+
+
+def test_the_adversary_stamp_never_degrades_to_a_placeholder():
+    """A renamed field must fail the verifier, not quietly misdescribe it.
+
+    `attacker_stamp_of` read `att.get("generator", "unknown generator")`. When
+    the provenance field was renamed, the friendly default turned every
+    published adversarial rate into "attacker T1-parity, unknown generator" --
+    a disclosure string saying the opposite of the truth, welded into the same
+    string as the digit, and green all the way through CI.
+
+    The tier check beside it already raised for exactly this reason. Now both
+    do.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location("verify_mod", repo / "verify.py")
+    v = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(v)
+
+    row = {"trial_id": "t1", "attacker": {"tier_vs_t1": "PARITY_OR_BELOW"}}
+    with pytest.raises(v.VerificationFailed, match="no adversary generator"):
+        v.attacker_stamp_of([row])
+
+    ok = {
+        "trial_id": "t1",
+        "attacker": {"tier_vs_t1": "PARITY_OR_BELOW", "adversary_generator": "a_b"},
+    }
+    stamp = v.attacker_stamp_of([ok])
+    assert "unknown" not in stamp
+    assert "a b" in stamp, "the machine identifier should read as prose"
+
+
+def test_the_verifier_and_the_producer_describe_the_same_adversary():
+    """Two independent derivations of one disclosure must not drift apart.
+
+    verify.py cannot import paybound, so the strings are built twice on purpose.
+    They need not be byte-identical, but they must not contradict each other on
+    the two facts that matter: the tier, and that no attacker model was used.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from paybound.agent.models import ATTACKER_PROVENANCE, attacker_stamp
+
+    repo = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location("verify_mod", repo / "verify.py")
+    v = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(v)
+
+    derived = v.attacker_stamp_of(
+        [{"trial_id": "t", "attacker": dict(ATTACKER_PROVENANCE)}]
+    )
+    produced = attacker_stamp()
+    parity = ATTACKER_PROVENANCE["tier_vs_t1"] != "STRONGER"
+    assert ("T1-parity" in derived) is parity
+    assert ("T1-parity" in produced) is parity
+    for s in (derived, produced):
+        assert "unknown" not in s.lower(), f"{s!r} fails to describe the adversary"

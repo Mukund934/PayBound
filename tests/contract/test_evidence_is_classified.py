@@ -36,6 +36,18 @@ def _run_dirs() -> list[Path]:
     return sorted(p for p in EVIDENCE.iterdir() if p.is_dir())
 
 
+
+def _lines_mentioning(text: str, name: str) -> list[str]:
+    """Only the lines that actually name this run.
+
+    A fixed character window was the first attempt and it was wrong: the index
+    is a table, so a 300-character window starting at one row runs into the
+    next one and reads its neighbour's status. Line scoping is what "the row
+    for this run" actually means.
+    """
+    return [ln for ln in text.splitlines() if name in ln]
+
+
 def test_the_evidence_directory_has_an_index():
     assert INDEX.is_file(), (
         "evidence/ needs a README: a reviewer sees a directory listing, not verify.py"
@@ -56,11 +68,10 @@ def test_every_superseded_run_is_marked_superseded_in_the_index():
     text = INDEX.read_text(encoding="utf-8")
     for d in _run_dirs():
         if (d / "SUPERSEDED.json").is_file():
-            idx = text.index(d.name)
-            window = text[idx : idx + 400]
-            assert "SUPERSEDED" in window.upper(), (
-                f"{d.name} carries SUPERSEDED.json but the index does not say so "
-                "within its own row"
+            rows = _lines_mentioning(text, d.name)
+            assert rows, f"{d.name} is not mentioned in the index at all"
+            assert any("SUPERSEDED" in r.upper() for r in rows), (
+                f"{d.name} carries SUPERSEDED.json but no line naming it says so"
             )
 
 
@@ -81,11 +92,11 @@ def test_the_index_agrees_with_what_verify_actually_excludes():
         )
         run = path.parent.name if path.parent.name != "ablation" else path.parents[1].name
         if excluded:
-            idx = text.index(run)
-            window = text[idx : idx + 400].upper()
-            assert "SUPERSEDED" in window or "NOT A RESULT" in window or "NO." in window, (
-                f"verify.py excludes {run} but the index does not say it is excluded"
-            )
+            rows = [r.upper() for r in _lines_mentioning(text, run)]
+            assert rows, f"verify.py excludes {run} but the index never names it"
+            assert any(
+                "SUPERSEDED" in r or "NOT A RESULT" in r or "NO." in r for r in rows
+            ), f"verify.py excludes {run} but the index does not say it is excluded"
 
 
 def test_a_live_run_would_not_be_mislabelled():
@@ -103,12 +114,15 @@ def test_a_live_run_would_not_be_mislabelled():
         if verify_mod._superseded_root(path, EVIDENCE) is not None:
             continue
         run = path.parent.name if path.parent.name != "ablation" else path.parents[1].name
-        if run in text:
-            idx = text.index(run)
-            window = text[idx : idx + 300].upper()
-            assert "SUPERSEDED" not in window, (
-                f"{run} is a live run that verify.py would score, but the index "
-                "calls it superseded"
+        rows = [r.upper() for r in _lines_mentioning(text, run)]
+        if rows:
+            assert not any("SUPERSEDED" in r for r in rows), (
+                f"{run} is a live run that verify.py would score, but a line "
+                "naming it calls it superseded"
+            )
+            assert any("LIVE" in r or "YES" in r for r in rows), (
+                f"{run} is scored by verify.py but the index does not present it "
+                "as a result"
             )
 
 
