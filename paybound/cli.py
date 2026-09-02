@@ -381,9 +381,18 @@ def cmd_status(args: argparse.Namespace) -> int:
     _, _, seal_path = _corpus_paths()
     attack = REPO / "corpus" / "attack.jsonl"
     evidence = REPO / "evidence"
-    runs = [
-        p for p in evidence.glob("*/trials.jsonl") if "smoke" not in p.parts
-    ] if evidence.is_dir() else []
+    # Superseded runs do not count, for the same reason verify.py excludes them:
+    # they were produced under a record that has since been corrected. Counting
+    # one here printed "committed runs 1" and pointed the reader at `pb verify`,
+    # which then exits 2 -- the status line and the verifier disagreeing about
+    # whether anything had been measured.
+    all_runs = (
+        [p for p in evidence.glob("*/trials.jsonl") if "smoke" not in p.parts]
+        if evidence.is_dir()
+        else []
+    )
+    superseded = [p for p in all_runs if (p.parent / "SUPERSEDED.json").is_file()]
+    runs = [p for p in all_runs if p not in superseded]
 
     print("PayBound")
     print(f"  policy          {POLICY_SHA256[:32]}")
@@ -405,6 +414,8 @@ def cmd_status(args: argparse.Namespace) -> int:
         print("  corpus          NOT SEALED")
 
     print()
+    if superseded:
+        print(f"  superseded runs {len(superseded)} — excluded; see evidence/README.md")
     if runs:
         print(f"  committed runs  {len(runs)}")
         print("  -> `pb verify` recomputes every published number")
