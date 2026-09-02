@@ -201,3 +201,82 @@ def test_every_arxiv_id_cited_is_recorded_as_verified():
     assert not missing, (
         f"arXiv ids cited but not recorded as verified in CITATIONS.md: {sorted(missing)}"
     )
+
+
+def test_no_document_denies_human_labelling_without_qualifying_it():
+    """The corpus discloses its own provenance. The prose must not contradict it.
+
+    Two flagship documents said "No LLM judge, no human labelling" beside the
+    ground-truth claim. That is true of *refund existence*, which Razorpay
+    settles. It is false of the routing oracle, which is authored by hand and
+    says so in every corpus item's own ``origin`` field --
+
+        {"by": "builder", "kind": "authored"}
+
+    -- so a reviewer opening ``corpus/benign.jsonl``, which is committed and one
+    click away, catches the contradiction in about thirty seconds. The project
+    disclosed the authoring in LIMITS and PREREG and then overstated it in the
+    two documents most likely to be read first.
+
+    A document may still make the claim. It must qualify it in the same
+    document, because a reader who stops after the headline is the reader this
+    guard exists for.
+    """
+    import json
+
+    corpus = REPO_ROOT / "corpus" / "benign.jsonl"
+    if corpus.is_file():
+        first = json.loads(corpus.read_text(encoding="utf-8").splitlines()[0])
+        assert first["origin"]["kind"] == "authored", (
+            "the corpus no longer records authored provenance; this guard needs rewriting"
+        )
+
+    denial = re.compile(r"no human label(l)?ing", re.I)
+    for doc in ("README.md", "IMPLEMENTATION_CONTRACT.md", "LIMITS.md", "PREREG.md"):
+        path = REPO_ROOT / doc
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if not denial.search(text):
+            continue
+        qualified = any(
+            phrase in text.lower()
+            for phrase in ("authored by hand", "authored by the builder", "hand-authored")
+        )
+        assert qualified, (
+            f"{doc} says 'no human labelling' but never states that the routing "
+            "oracle is authored by hand, which the corpus itself records"
+        )
+
+
+def test_the_prereg_predates_every_committed_trial():
+    """Pre-registration is only worth something if the order is checkable.
+
+    Asserted against git rather than against a date written in prose, because a
+    date in prose is a claim and a commit order is a fact.
+    """
+    import subprocess
+
+    def _added(path: str) -> str | None:
+        out = subprocess.run(
+            ["git", "log", "--diff-filter=A", "--format=%ct", "--", path],
+            capture_output=True, text=True, cwd=REPO_ROOT, timeout=120,
+        ).stdout.split()
+        return out[-1] if out else None
+
+    prereg = _added("PREREG.md")
+    if prereg is None:
+        pytest.skip("not a git checkout")
+
+    trials = [
+        p.relative_to(REPO_ROOT).as_posix()
+        for p in (REPO_ROOT / "evidence").rglob("trials.jsonl")
+        if "smoke" not in p.parts and not (p.parent / "SUPERSEDED.json").is_file()
+    ]
+    for t in trials:
+        added = _added(t)
+        if added is None:
+            continue
+        assert int(prereg) < int(added), (
+            f"PREREG.md was committed after {t}, so it did not pre-register anything"
+        )

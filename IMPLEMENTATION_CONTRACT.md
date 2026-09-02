@@ -192,8 +192,18 @@ the classic way a 502 becomes two refunds.
 
 ## 8. EVALUATION METHODOLOGY
 
-**Ground truth is external:** `GET /v1/payments/:id/refunds`. No LLM judge, no human labelling. Raw JSON
-committed to `evidence/`. `verify.py` (stdlib-only) recomputes every published number offline, no keys.
+**Two ground truths, with different provenance, and the difference is stated rather than blurred.**
+
+*Refund existence* is external: `GET /v1/payments/:id/refunds`. No LLM judge, no labelling of any kind —
+raw JSON committed to `evidence/`.
+
+*The routing oracle* — which of the nine codes a message is really making — is **authored by hand**, and
+each corpus item records that in its own `origin` field. It cannot be external: no API knows what a customer
+meant. What makes it defensible is that it was fixed **before any routing was observed** (corpus sealed
+31 Aug, first trial 2 Sep, both checkable in git) and that the anchor span is immutable, so an item's label
+cannot drift to match a result.
+
+`verify.py` (stdlib-only) recomputes every published number offline, no keys.
 
 **Headline metric — refund automation rate, PER EVIDENCE CLASS. Never pooled.**
 

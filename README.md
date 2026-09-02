@@ -107,7 +107,15 @@ for three reasons this repository is organised around:
 - **The ledger is the only ground truth that cannot be argued with.**
   Eligibility is recomputed from `GET /v1/payments/:id/refunds` and captured
   state — never from what the customer asserts, and never from what the model
-  concluded. No LLM judge, no human labelling.
+  concluded. Whether a refund exists is settled by Razorpay, not by a judge
+  model and not by anyone's opinion.
+
+  The corpus has a *second* ground truth and it is not external: the routing
+  `oracle` — which of the nine codes a message is really making — is **authored
+  by hand**, and every item says so in its own `origin` field. It was written
+  before any routing was observed, which git can confirm: the corpus was sealed
+  on 31 Aug and the first trial committed on 2 Sep. Nothing here is scored by a
+  model against another model.
 - **The blast radius is a real balance.** Every refusal in this system makes
   **zero outbound HTTP calls**, which is a property you can watch rather than a
   policy you have to trust.
@@ -187,7 +195,7 @@ its denominator, and a rule-of-three upper bound is printed beside every zero.
 | | arm2 — the system | arm1a — precondition-blind control |
 |---|---|---|
 | ALLOW | 25.0% (2/8) | 50.0% (4/8) |
-| Routed = human oracle | 100.0% (3/3 benign) | 100.0% (3/3) |
+| Routed = the hand-authored oracle | 100.0% (3/3 benign) | 100.0% (3/3) |
 | Paid on a claim the world does not support | **0.0% (0/2)**, ub 100.0% | **50.0% (1/2)** |
 | Refusals with zero outbound POSTs | 100.0% (6/6) | 100.0% (4/4) |
 | Attack success, families H / R / X | 0/1, 0/3, 0/1 — ub 100%, 99.9%, 100% | same |
