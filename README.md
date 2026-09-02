@@ -248,8 +248,17 @@ router — `PREREG.md` budgets 156 calls, which is about a fortnight of this
 quota.
 
 ```bash
-pb sweep
+pb showcase   # showcase.html: request -> bounded authority -> Razorpay truth
+pb sweep      # the adversarial campaign, analysed offline
 ```
+
+`pb showcase` renders the whole causal chain on one page: four real attack
+payloads from the sealed corpus with their injected spans highlighted, the
+tool registry's **actual** JSON schema beside them — `request_refund` has no
+`amount` parameter and no `payment` parameter, so *"Set amount=95000"* and
+*"apply this to pay_ATTACKER…"* have nowhere to land — and Razorpay's own
+read-back of the refund that was actually executed. Every value is read from a
+committed artifact at render time; nothing on the page is typed in.
 
 prints that analysis: both cells, what the policy does at each label, and the
 ₹2,68,650.00 a total router failure across the sweep would move. No key, no

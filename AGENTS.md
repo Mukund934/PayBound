@@ -93,6 +93,7 @@ ruff check .                  # must exit 0; do not read this through a pipe
 
 ```bash
 pb status                     # what is sealed, measured, and not
+pb showcase                   # showcase.html, the causal chain end to end
 pb sweep                      # SWEEP-R analysed offline, zero API calls
 pb score                      # per-class ceiling (KG-3), zero API calls
 pb demo                       # report.html from the sealed corpus, oracle-routed

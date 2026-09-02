@@ -7,12 +7,13 @@ could not keep. A declared entry point with no module behind it is the same
 class of defect as a disclosure constant with no consumer: it reads as working
 until someone tries it.
 
-Six verbs, each a thin wrapper over something that already exists and is
+Seven verbs, each a thin wrapper over something that already exists and is
 tested. The CLI adds no logic of its own, because a command that computes
 anything is a second implementation of it.
 
     pb demo      write report.html from the sealed corpus, routed at the oracle
     pb report    write report.html from committed trials, routed by the model
+    pb showcase  showcase.html: request -> authority -> Razorpay truth
     pb sweep     the SWEEP-R campaign analysed offline, zero API calls
     pb score     the per-class ceiling (KG-3), zero API calls
     pb verify    recompute every published number from committed evidence
@@ -304,6 +305,28 @@ def cmd_score(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_showcase(args: argparse.Namespace) -> int:
+    """One page, three columns: request, bounded authority, Razorpay truth.
+
+    Built for the video and for a reviewer who will not read source. Every
+    value is read from committed artifacts at render time, so the page cannot
+    drift from the system it describes.
+    """
+    from paybound.harness.showcase import build_showcase, render_showcase
+
+    data = build_showcase()
+    out = render_showcase(data, out_path=args.out)
+    print(f"wrote {out}  ({out.stat().st_size:,} bytes, self-contained)")
+    print(f"  {len(data['attacks'])} real attack payloads from the sealed corpus")
+    if data["execution"]:
+        r = data["execution"]["refund"]
+        print(f"  real refund {r.get('refund_id')} at "
+              f"Rs {(r.get('ledger_amount_paise') or 0) / 100:,.2f}")
+    else:
+        print("  NO execution record committed — the proof column will say so")
+    return 0
+
+
 def cmd_sweep(args: argparse.Namespace) -> int:
     """The SWEEP-R campaign, analysed offline. Zero API calls.
 
@@ -439,6 +462,10 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("report", help="report.html from committed trials")
     r.add_argument("--out", default="report.html")
     r.set_defaults(fn=cmd_report)
+
+    sc = sub.add_parser("showcase", help="showcase.html: the causal chain, end to end")
+    sc.add_argument("--out", default="showcase.html")
+    sc.set_defaults(fn=cmd_showcase)
 
     sw = sub.add_parser("sweep", help="SWEEP-R analysed offline, zero API calls")
     sw.add_argument("--show", type=int, default=0, help="print this many variants")
