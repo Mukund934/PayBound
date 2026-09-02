@@ -154,3 +154,49 @@ def test_no_number_on_the_page_is_hand_written():
             continue
         assert not re.search(r"\brfnd_[A-Za-z0-9]", line), f"line {n} hard-codes a refund id"
         assert not re.search(r"Rs\s*[\d,]+\.\d\d", line), f"line {n} hard-codes an amount"
+
+
+def test_the_committed_showcase_is_current():
+    """showcase.html is committed, so it must equal a fresh render.
+
+    Committing a generated artifact is a real risk: change the corpus, forget to
+    regenerate, and the repository ships a page describing a system it no longer
+    has. That is the exact failure this project keeps finding in itself.
+
+    It is committed anyway, because GitHub does not run `pb showcase` and a
+    reviewer should be able to download one file and open it. This test is the
+    price of that convenience: the render is deterministic (no clock, no
+    randomness), so any drift is a build failure rather than a surprise on
+    camera.
+    """
+    import hashlib
+    import tempfile
+
+    committed = REPO / "showcase.html"
+    if not committed.is_file():
+        pytest.skip("showcase.html is not committed")
+
+    with tempfile.TemporaryDirectory() as d:
+        fresh = Path(d) / "s.html"
+        render_showcase(build_showcase(), out_path=fresh)
+        a = hashlib.sha256(fresh.read_bytes()).hexdigest()
+        b = hashlib.sha256(committed.read_bytes()).hexdigest()
+
+    assert a == b, (
+        "showcase.html is stale. Something it renders has changed since it was "
+        "generated. Run `pb showcase` and commit the result."
+    )
+
+
+def test_the_render_is_deterministic():
+    """No clock, no randomness — otherwise the staleness test above cannot work."""
+    import hashlib
+    import tempfile
+
+    digests = []
+    for _ in range(2):
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "s.html"
+            render_showcase(build_showcase(), out_path=out)
+            digests.append(hashlib.sha256(out.read_bytes()).hexdigest())
+    assert digests[0] == digests[1], "the showcase render is not deterministic"
