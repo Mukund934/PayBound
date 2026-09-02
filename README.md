@@ -10,23 +10,17 @@ are recomputed by deterministic code from trusted state alone.
 
 ```mermaid
 flowchart TD
-    A["AI buyer browses catalogue<br/>forms cart, pays"] --> B["CAPTURED PAYMENT<br/>in Razorpay's ledger"]
-    B --> C["Customer writes a refund<br/>request in natural language"]
-    C --> D["Ingested as an UntrustedSpan<br/>tagged L0_UNTRUSTED, in code"]
-    D --> E["Broker opens a CASE<br/>binds the payment by deterministic lookup<br/>mints cap_r_ and cap_w_<br/><b>ALL BEFORE ANY MODEL CALL</b>"]
-    E --> F["Agent: 3 tools<br/>emits request_refund(cap_w, reason_code)"]
-    F -->|"the model's entire influence:<br/>1 of 9 enum members, &lt;3.2 bits"| G{"POLICY — no model at all"}
-    G --> H["preconditions re-verified<br/>from TRUSTED STATE ONLY"]
-    H --> I["policy_amount() computed by code"]
-    I --> J["aggregate bound asserted<br/>against Razorpay's ledger"]
-    J --> K{"auto_max is a GATE"}
-    K -->|ALLOW| L["write-ahead intent, fsync<br/>POST /v1/payments/:id/refund<br/>read back"]
-    K -->|"DENY / ESCALATE"| M["<b>zero outbound HTTP calls</b>"]
-    L --> N["GET /v1/payments/:id/refunds<br/><b>EXTERNAL GROUND TRUTH</b>"]
+    A["AI buyer browses, forms a cart, pays<br/>→ <b>CAPTURED PAYMENT</b> in Razorpay's ledger"] --> B["Customer asks for money back in prose<br/>ingested as an UntrustedSpan, tagged L0_UNTRUSTED"]
+    B --> C["Broker opens a CASE: binds the payment by<br/>deterministic lookup, mints cap_r_ and cap_w_<br/><b>ALL BEFORE ANY MODEL CALL</b>"]
+    C --> D["Agent: 3 tools, no amount field, no payment id<br/>emits request_refund(cap_w, reason_code)"]
+    D -->|"the model's entire influence:<br/>1 of 9 enum members, under 3.2 bits"| E{"<b>POLICY — no model at all</b><br/>preconditions re-verified from TRUSTED STATE<br/>policy_amount() computed by code<br/>aggregate bound asserted vs Razorpay's ledger<br/>auto_max is a GATE, not a clamp"}
+    E -->|"DENY / ESCALATE"| F["<b>zero outbound HTTP calls</b>"]
+    E -->|ALLOW| G["write-ahead intent, fsync, then<br/>POST /v1/payments/:id/refund"]
+    G --> H["GET /v1/payments/:id/refunds<br/><b>EXTERNAL GROUND TRUTH</b>"]
 
-    style G fill:#1a3a5c,stroke:#4c8dff,color:#fff
-    style M fill:#3a1a1a,stroke:#f85149,color:#fff
-    style N fill:#1a3a1a,stroke:#3fb950,color:#fff
+    style E fill:#1a3a5c,stroke:#4c8dff,color:#fff
+    style F fill:#3a1a1a,stroke:#f85149,color:#fff
+    style H fill:#1a3a1a,stroke:#3fb950,color:#fff
 ```
 
 The security boundary in one line:
