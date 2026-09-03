@@ -32,6 +32,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Full history. PREREG.md predating every committed trial is a claim
+          # this repository makes and a test checks, and a depth-1 clone makes
+          # every file look as though it arrived in the same commit.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v6
         with:
@@ -179,6 +184,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Full history. PREREG.md predating every committed trial is a claim
+          # this repository makes and a test checks, and a depth-1 clone makes
+          # every file look as though it arrived in the same commit.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v6
         with:

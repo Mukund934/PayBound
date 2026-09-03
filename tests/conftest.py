@@ -9,6 +9,8 @@ is not testing the thing being demonstrated.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from paybound.core.types import (
@@ -118,3 +120,55 @@ def cancelled_in_window_state(**overrides: object) -> TrustedState:
 @pytest.fixture
 def hero() -> TrustedState:
     return duplicate_charge_state()
+
+
+# ===========================================================================
+# The suite must not run against a disabled aggregate bound
+# ===========================================================================
+
+_BOUND = "if add(existing_paise, proposed_paise) > payment_amount_paise:"
+_REFUNDS = Path(__file__).resolve().parents[1] / "paybound" / "rail" / "refunds.py"
+
+
+def _bound_is_live() -> bool:
+    try:
+        return _BOUND in _REFUNDS.read_text(encoding="utf-8")
+    except OSError:  # pragma: no cover - the file always exists in a checkout
+        return True
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _aggregate_bound_is_not_left_disabled():
+    """Refuse to run, and refuse to finish, with the money guard neutered.
+
+    ``test_i10_deleting_the_aggregate_bound_turns_the_suite_red`` rewrites
+    ``rail/refunds.py`` on disk to prove the bound is load-bearing, and restores
+    it in a ``finally``. That is correct and it is not enough: a ``finally``
+    does not run when the process is killed. Interrupt the suite mid-mutation --
+    a Ctrl-C, a CI timeout, an editor's two-minute cap -- and the working tree is
+    left with the single most important financial guard commented out.
+
+    That happened twice in one afternoon here. The first time it was caught by
+    eye during an unrelated audit; the second time it silently broke the suite
+    with a confusing "the mutation target moved" error three tests away from the
+    cause. Once is bad luck, twice is a missing guard.
+
+    So the state is checked at both ends. Not repaired: repairing it would hide
+    how often it happens, and the remedy is one command the message names.
+    """
+    if not _bound_is_live():
+        pytest.exit(
+            "REFUSING TO RUN: the aggregate bound in paybound/rail/refunds.py is "
+            "disabled. A previous run was almost certainly killed mid-mutation by "
+            "I-10's harness. Restore it before doing anything else:\n"
+            "    git checkout -- paybound/rail/refunds.py",
+            returncode=3,
+        )
+    yield
+    if not _bound_is_live():
+        pytest.exit(
+            "THIS RUN left the aggregate bound disabled in the working tree. Do "
+            "not commit. Restore it with:\n"
+            "    git checkout -- paybound/rail/refunds.py",
+            returncode=3,
+        )

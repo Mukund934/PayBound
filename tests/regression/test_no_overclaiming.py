@@ -264,6 +264,20 @@ def test_the_prereg_predates_every_committed_trial():
         ).stdout.split()
         return out[-1] if out else None
 
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        capture_output=True, text=True, cwd=REPO_ROOT, timeout=60,
+    ).stdout.strip()
+    if shallow == "true":
+        # On a shallow clone every file looks as though it were added in the one
+        # commit that exists, so PREREG and the trials report the SAME timestamp
+        # and a strict ordering is unverifiable rather than false. This kept CI
+        # red for eight commits: actions/checkout fetches depth 1 by default, and
+        # every fresh-clone check run locally was a FULL clone, so nothing local
+        # could reproduce it. CI now fetches full history; this skip is for
+        # anyone else who does not.
+        pytest.skip("shallow clone: commit ordering is not observable")
+
     prereg = _added("PREREG.md")
     if prereg is None:
         pytest.skip("not a git checkout")
