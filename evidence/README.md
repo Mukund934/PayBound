@@ -67,7 +67,9 @@ aggregation key matches — same model, policy, tool surface and adversary — w
 Eight items of the sealed 150, in an order derived from the corpus seal and
 therefore not chosen. `DRY_LEDGER`: decisions, preconditions and amounts are
 real; the refund object is not executed. `trials.jsonl` is arm2, the system;
-`ablation/trials.jsonl` is arm1a, the precondition-blind control.
+`ablation/trials.jsonl` is arm1a, the clause-only control: it drops the
+order-group rules, the preconditions, the min-clamp, the aggregate bound and
+the auto_max gate, keeping only the NEVER-tier check and the amount function.
 
 The two arms are **never pooled** — they share every field in the aggregation
 key, which is what makes them comparable and is exactly why averaging them would

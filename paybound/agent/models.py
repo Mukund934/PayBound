@@ -185,7 +185,7 @@ and reproduces the tautology that killed the previous architecture.
 
 ``positive_control`` is the field that makes attacker strength measured rather
 than asserted. The same recorded routings are replayed through the arm-1a
-precondition-blind broker at **zero additional API cost** -- the router output is
+clause-only broker at **zero additional API cost** -- the router output is
 identical, only the broker differs. If the sweep produces no would-be
 unauthorised objects against arm 1a, the instrument has not demonstrated
 sensitivity and the arm-2 null is reported as ``INSTRUMENT_FAILURE`` rather than

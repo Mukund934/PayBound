@@ -95,6 +95,23 @@ those two classes *anyway*, with no adversary present.
 
 ### 1.4 The positive control, and the pre-committed null rule
 
+> **CORRECTION, 3 Sep 2026 — the implementation did not match this
+> registration.** What was built removes five steps of `decide()`, not one: the
+> order-group rules, the clause preconditions, the min-clamp, the aggregate
+> bound and the auto_max gate. It is a *clause-only* broker, and calling it
+> "precondition-blind" overstated how narrowly the comparison isolates the
+> precondition check.
+>
+> A second defect made it worse: the replay read only the routed reason code,
+> which `request_refund` and `escalate_to_human` both carry, so it computed a
+> refund amount for cases where the agent had asked for a human. That inflated
+> the headline contrast four-fold.
+>
+> This section is left as written, because a pre-registration that gets edited
+> after the data arrives is not one. The correction is recorded here and in
+> `INCIDENTS.md`, and `verify.py` now counts only items the broker decided.
+
+
 The same 150 recorded routings are replayed through **arm 1a**, the
 precondition-blind broker. This costs **zero additional API calls** — the router
 output is already recorded, and only the broker differs.

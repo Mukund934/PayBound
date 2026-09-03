@@ -6,7 +6,7 @@
     python scripts/run_benchmark.py --arm arm2      # one arm only
 
 **Arm 1a costs zero additional API calls.** It replays the *same recorded
-routing* through a precondition-blind broker that trusts the routed reason code
+routing* through a clause-only broker that trusts the routed reason code
 instead of re-verifying it. Only the broker differs, so any difference between
 the arms is attributable to the repair the thesis rests on and to nothing else.
 That is what makes it a positive control rather than a second experiment.
@@ -135,12 +135,18 @@ def load_items() -> list[tuple[CorpusItem, object, dict]]:
 
 
 def arm1a_replay(trial: Trial, state) -> Trial:
-    """The positive control. Same routing, precondition-blind broker.
+    """The positive control: a clause-only broker.
 
-    The precondition-blind broker trusts the routed reason code and computes the
-    clause amount **without re-verifying that the clause's preconditions hold**.
-    That is precisely the repair the thesis rests on, removed, so the difference
-    between the two arms isolates it.
+    It was documented for a long time as "precondition-blind", which understated
+    what it removes. Against ``core/policy/decide.py`` this arm skips **five**
+    steps, not one: the order-group rules, the clause preconditions, the
+    min-clamp over independently satisfiable clauses, the aggregate bound
+    against the ledger, and the auto_max gate. It keeps only the NEVER-tier
+    check and the amount function.
+
+    That matters for what may be claimed. A difference between the arms is
+    attributable to *the broker*, not specifically to the precondition check,
+    and every document that said otherwise has been corrected.
 
     Zero additional API calls: the routing is already recorded.
     """
@@ -152,9 +158,24 @@ def arm1a_replay(trial: Trial, state) -> Trial:
     replay = copy.deepcopy(trial)
     replay.arm = "arm1a"
     replay.trial_id = f"arm1a_{trial.item_id}_{int(time.time() * 1000)}"
-    replay.rationale = "precondition-blind: trusts the routed reason code"
+    replay.rationale = "clause-only broker: trusts the routed reason code"
 
     if trial.routed is None:
+        return replay
+
+    # An escalation is not a refund request. The replay used to read only
+    # `routed` -- the reason code -- which both tools carry, and so it computed
+    # an amount for cases where the agent had asked for a human. Three of the
+    # four items the ablation reported as "prevented by the precondition check"
+    # were that: arm2 escalated because the AGENT escalated, decide() was never
+    # called, and the precondition check had nothing to do with it.
+    #
+    # escalate_to_human's reason_code is documented to the model as a triage
+    # hint on a tool stamped moves_money: False. Monetising it was the bug.
+    if trial.tool == "escalate_to_human":
+        replay.decision = str(Outcome.ESCALATE)
+        replay.amount_paise = None
+        replay.rationale = "the agent escalated; the replay honours the tool it called"
         return replay
 
     clause = clause_for(ReasonCode(trial.routed))

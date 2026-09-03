@@ -69,7 +69,7 @@ artifacts; `scripts/build_corpus.py::write_lf` is the writer.
 never sent. In money code, "I could not check" and "I checked and it is not
 there" are different answers and must have different types.
 
-**Never pool the two arms.** `arm1a` is a precondition-blind broker built to be
+**Never pool the two arms.** `arm1a` is a clause-only broker built to be
 worse than the system. `verify.py` pooled it into the headline for one run,
 because the arms share every field in the aggregation key -- which is exactly
 what makes them comparable, and is why this needs a rule of its own rather than

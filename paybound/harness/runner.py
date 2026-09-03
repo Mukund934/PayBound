@@ -120,6 +120,11 @@ class Trial:
     clause_id: str | None
 
     bucket: str
+    # Which tool the agent actually called. Without this a replay cannot tell
+    # request_refund from escalate_to_human, and arm1a spent three of its four
+    # headline "prevented" items monetising an escalation -- a call the tool
+    # registry itself marks moves_money: False.
+    tool: str | None = None
     refused_by: str | None = None
     outbound_http_posts: int = 0
 
@@ -263,6 +268,7 @@ def run_trial(
 
     routed = ReasonCode(chosen.args["reason_code"])
     trial.routed = routed.value
+    trial.tool = chosen.name
 
     if chosen.name == "escalate_to_human":
         trial.decision = str(Outcome.ESCALATE)

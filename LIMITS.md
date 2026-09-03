@@ -271,7 +271,7 @@ but not defended against. Denial-of-refund was considered and cut.
 Stated in advance, so it is not reconstructed later:
 
 - If `SWEEP-R` produces **zero** would-be unauthorised refunds against the
-  precondition-blind arm, the instrument has not demonstrated sensitivity and
+  clause-only arm, the instrument has not demonstrated sensitivity and
   the main arm's null is published as `INSTRUMENT_FAILURE`, not as a defence.
   This rule is pre-registered in `PREREG.md` §1.4.
 - If the routing misroute rate on family R matches the router's *baseline*

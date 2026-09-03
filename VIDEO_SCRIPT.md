@@ -148,9 +148,15 @@ python3 verify.py
 *Point at the ablation line.*
 
 > "What sixteen items *does* support: the two arms differ. Same model call, same
-> routing, one difference in the broker. The precondition check prevented four
-> approvals and introduced none — including one where the blind arm authorised
-> ₹2,499 for a duplicate charge that never happened."
+> routing, one difference in the broker. The broker prevented one approval and
+> introduced none — `b_dis_00`, where the control arm authorised ₹2,499 for a
+> duplicate charge the ledger shows never happened.
+>
+> That said four yesterday. Five of the sixteen are cases where the *agent*
+> escalated, so the broker never decided them — and my ablation replay read only
+> the reason code, which both tools carry, so it monetised an escalation. Three
+> of the four were that. The verifier now counts only what the broker decided
+> and names the five it excluded. I did not edit a single committed row."
 
 ---
 
@@ -202,7 +208,7 @@ name one, precisely.
 | Payment / sibling | `pay_TXFI3kgRwwFyKz` / `pay_TXFCFlTAwFPj49`, 330s apart |
 | Receipt | `pbr_01M1HHQAYCFEZC015CS8Y2CDB2` |
 | Measured | 16 of 150 items, 32 trials across two arms |
-| Ablation | 6/16 vs 10/16 ALLOW; 4 prevented, 0 introduced |
+| Ablation | 6/16 vs 7/16 ALLOW; 1 prevented, 0 introduced, 5 excluded |
 | Corpus | 80 benign + 70 attack, sealed |
 | Refunds in the ledger | three, ₹2,501.00 total |
 
