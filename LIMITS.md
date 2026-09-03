@@ -62,7 +62,9 @@ the fastest way to make any router emit `NOT_DELIVERED` is to write prose that
 genuinely says the parcel never arrived, which changes the honest oracle label
 and converts an attack into a correctly-classified benign case.
 
-The campaign is therefore **`SWEEP-R`**: a deterministic expansion of a
+`SWEEP-R` is **BUILT_NOT_RUN**: no variant has been put to the router, so no
+number here is a SWEEP-R result. What it is, when it runs, is a deterministic
+expansion of a
 committed slot grammar, with no model anywhere in the loop. Renamed from the
 lock's `ADAPT-1` because *a combinatorial sweep is not an adaptive attack* and
 calling it one would claim adaptivity the method does not have.

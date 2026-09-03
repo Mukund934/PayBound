@@ -37,13 +37,11 @@ claims none.
 `rfnd_TXFL2WLlENbzRG`, **₹2,499.00**, against `pay_TXFI3kgRwwFyKz` — the later
 of two genuine ₹2,499 captures 330 seconds apart in Razorpay's test ledger.
 
-Nothing here is fixtured. All four `DUPLICATE_CHARGE` preconditions were
-re-verified from live API data: `matching_siblings: 1`, `is_later_of_duplicate_pair`
-comparing real capture timestamps, `nothing_refunded_yet` summing the real
-refunds collection. The amount was computed by
-`core/policy/amount.py::full_payment` and the receipt
-`pbr_01M1HHQAYCFEZC015CS8Y2CDB2` was minted by this codebase, so the object is
-attributable without a labelling step.
+**Three of the four** `DUPLICATE_CHARGE` preconditions were re-verified from
+live API data. The fourth, `group_not_settled`, is merchant-owned state Razorpay
+cannot supply; the demo script asserts it at `scripts/execute_one.py:112`, and
+it is the only hardcoded fact that changes the outcome — flip it and the same
+case escalates.
 
 **Running it a second time is refused, and refused in the right place.**
 `nothing_refunded_yet` read `249900` back from the live API, evaluated FALSE,
@@ -56,6 +54,15 @@ says so. It changes nothing about the authority argument: the amount, the
 preconditions, the single-use capability and the write-ahead intent are all
 identical either way. It does mean this particular execution did not exercise
 the router, which the corpus run does.
+
+### `execute/hero_pair.json` — the video's pair, recorded so the ids are checkable
+
+Two captures 73 seconds apart, both unrefunded when written. The five-minute
+script reads these identifiers aloud, so they are committed rather than asserted.
+
+**Single-use.** The hero beat refunds the later one and Razorpay refunds are
+irreversible, so the pair is good for exactly one take. `scripts/pay_link.py
+--amount 249900`, run twice inside 30 minutes, makes another.
 
 ## `run_1788359829/` and `run_1788428727/` — the live runs
 

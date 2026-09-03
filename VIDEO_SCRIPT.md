@@ -5,9 +5,15 @@ engineer, not a recruiter.* So: no product music, no feature tour, no
 "imagine a world where". Show the code, show the ledger, and say what is not
 proven.
 
-**Everything below is rehearsable.** Every command is offline except where
-marked, every number is one this repository prints, and there is a fallback for
-the one beat that touches the network.
+**Everything below is rehearsable.** Every number is one this repository prints.
+Three commands touch the Razorpay API and are marked **LIVE**; `pb showcase`,
+`pb sweep` and `verify.py` are fully offline. There is a fallback for the live
+beat that needs no network at all.
+
+**The pair is single-use.** The hero beat ends by creating a real refund, and
+Razorpay refunds are irreversible — so `pay_TXYQ1HyfLIBjOh` works for exactly
+one take. Rehearse with `--dry` as often as you like; it never sends. If you
+need a second full take, seed a fresh pair first (below) and swap the two ids.
 
 ---
 
@@ -21,13 +27,28 @@ pb showcase          # regenerates showcase.html
 python3 verify.py    # expect exit 0
 ```
 
+Confirm the hero pair is still unrefunded — this is the one thing that can
+silently break the take:
+
+```bash
+python scripts/execute_one.py --payment pay_TXYQ1HyfLIBjOh   --sibling pay_TXYOk3l11Kj9Wm --route DUPLICATE_CHARGE --dry
+```
+
+It must print **`decision ALLOW`** and **`amount Rs 2,499.00`**. If it prints
+`ESCALATE` with `nothing_refunded_yet ... FALSE`, the pair has already been
+used: seed a new one and swap the ids everywhere in this file.
+
+```bash
+python scripts/pay_link.py --amount 249900   # twice, within 30 minutes
+```
+
 Have open, in this order, and nothing else:
 
 1. `showcase.html` in a browser, zoomed so all three columns fit
 2. `paybound/agent/tools.py`, scrolled to `request_refund`
 3. A terminal in the repo root
 4. The Razorpay dashboard → Transactions → Refunds, **test mode**, filtered to
-   `pay_TXFI3kgRwwFyKz`
+   `pay_TXYQ1HyfLIBjOh`
 
 Close Slack, email, and anything with a notification. Screen-record at 1080p or
 better; the JSON schema must be legible.
@@ -80,35 +101,53 @@ has exactly two keys.*
 > genuine duplicate charge."
 
 ```bash
-python scripts/execute_one.py --payment pay_TXFI3kgRwwFyKz \
-  --sibling pay_TXFCFlTAwFPj49 --route DUPLICATE_CHARGE --dry
+python scripts/execute_one.py --payment pay_TXYQ1HyfLIBjOh \
+  --sibling pay_TXYOk3l11Kj9Wm --route DUPLICATE_CHARGE --dry
 ```
 
-*Point at the four precondition lines as they print.*
+*Point at the four precondition lines as they print — the fourth one matters,
+say so.*
 
-> "Four preconditions, re-verified from the live API, not from what the customer
-> said. `matching_siblings: 1`. Real capture timestamps. The real refunds
-> collection.
+> "Four preconditions. **Three of them re-verified from the live API**, not from
+> what the customer said: `matching_siblings: 1`, real capture timestamps, the
+> real refunds collection.
+>
+> The fourth — `group_not_settled` — is merchant state Razorpay cannot supply,
+> and my demo script asserts it. It is also the only hardcoded fact here that
+> changes the outcome: flip it and this same case escalates. I said 'nothing
+> fixtured' in an earlier draft and that was wrong in my own favour.
 >
 > Then the amount: **₹2,499.00, computed by `core/policy/amount.py`**. Not
 > proposed by the model, not extracted from the text. The model chose a *word*;
 > code chose the *number*."
 
-*Cut to the Razorpay dashboard.*
+Now run it for real — **LIVE, and once only**:
 
-> "`rfnd_TXFL2WLlENbzRG`. It carries a receipt this codebase minted, so it is
-> attributable without a labelling step."
+```bash
+python scripts/execute_one.py --payment pay_TXYQ1HyfLIBjOh   --sibling pay_TXYOk3l11Kj9Wm --route DUPLICATE_CHARGE
+```
 
-**Fallback if the dashboard is slow or the API is down:** the `--dry` run above
-is fully offline, and `evidence/execute/execute_*.json` contains Razorpay's own
-read-back. Show the JSON. Say "this is the read-back, committed." Do not stall
-on a loading spinner.
+*Cut to the Razorpay dashboard, refunds filtered to that payment.*
+
+> "There it is. The refund carries a receipt this codebase minted, so the object
+> is attributable without a labelling step."
+
+**Fallback if the API is slow or down.** Do not use `--dry` — it does two live
+GETs before it decides, so it fails in exactly the same outage. Use the
+committed read-back instead, which needs no network:
+
+```bash
+cat evidence/execute/execute_01M1HHQAYCFEZC015CS8Y2CDB2.json
+```
+
+Say: "this is Razorpay's own read-back of an earlier run, committed to the
+repository." That is true, offline, and loses nothing.
 
 ---
 
 ## 2:10 – 3:00 · At-most-once, against a real processor
 
-Run the *same command again*, without `--dry`.
+Run the *exact same command a third time* — **LIVE**.
 
 > "Same case, same command. The system reads the refunds collection back from
 > the live API, sees ₹2,499 already refunded, and `nothing_refunded_yet`
@@ -204,8 +243,9 @@ name one, precisely.
 
 | | |
 |---|---|
-| Hero refund | `rfnd_TXFL2WLlENbzRG`, ₹2,499.00 |
-| Payment / sibling | `pay_TXFI3kgRwwFyKz` / `pay_TXFCFlTAwFPj49`, 330s apart |
+| Hero pair | `pay_TXYQ1HyfLIBjOh` refunded, sibling `pay_TXYOk3l11Kj9Wm` |
+| Earlier refund (committed evidence) | `rfnd_TXFL2WLlENbzRG`, ₹2,499.00 |
+| Capture gap | ~73 seconds, inside the 1800s duplicate window |
 | Receipt | `pbr_01M1HHQAYCFEZC015CS8Y2CDB2` |
 | Measured | 16 of 150 items, 32 trials across two arms |
 | Ablation | 6/16 vs 7/16 ALLOW; 1 prevented, 0 introduced, 5 excluded |

@@ -1,0 +1,29 @@
+{
+  "capture_gap_s": 73,
+  "duplicate_sibling": "pay_TXYOk3l11Kj9Wm",
+  "duplicate_window_s": 1800,
+  "note": "Recorded so the identifiers VIDEO_SCRIPT.md reads aloud are checkable. Both are captured and unrefunded at the time of writing; the video's hero beat refunds the later one, and Razorpay refunds are irreversible, so this pair is good for exactly one take. Seed a fresh pair with scripts/pay_link.py --amount 249900 (twice) if another is needed.",
+  "payments": {
+    "pay_TXYOk3l11Kj9Wm": {
+      "amount": 249900,
+      "amount_refunded": 0,
+      "captured": true,
+      "created_at": 1788436274,
+      "id": "pay_TXYOk3l11Kj9Wm",
+      "method": "card",
+      "status": "captured"
+    },
+    "pay_TXYQ1HyfLIBjOh": {
+      "amount": 249900,
+      "amount_refunded": 0,
+      "captured": true,
+      "created_at": 1788436347,
+      "id": "pay_TXYQ1HyfLIBjOh",
+      "method": "card",
+      "status": "captured"
+    }
+  },
+  "purpose": "the hero pair for the five-minute video; seeded, unrefunded, single-use",
+  "refund_target": "pay_TXYQ1HyfLIBjOh",
+  "seeded_at": 1788436274
+}
