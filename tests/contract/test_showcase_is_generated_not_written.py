@@ -176,11 +176,25 @@ def test_the_committed_showcase_is_current():
     if not committed.is_file():
         pytest.skip("showcase.html is not committed")
 
+    def _lf(raw: bytes) -> bytes:
+        """Compare content, not line endings.
+
+        Caught by the fresh-clone gate: `.gitattributes` pins the sealed
+        artifacts to LF, this file was not among them, and a Windows checkout
+        therefore hands the reviewer CRLF while a fresh render writes LF. The
+        digests differ and the page is identical. Fifth instance of the newline
+        defect in this repository.
+
+        The attribute is now pinned too, but normalising here is the half that
+        cannot be forgotten for the next committed artifact.
+        """
+        return raw.replace(b"\r\n", b"\n")
+
     with tempfile.TemporaryDirectory() as d:
         fresh = Path(d) / "s.html"
         render_showcase(build_showcase(), out_path=fresh)
-        a = hashlib.sha256(fresh.read_bytes()).hexdigest()
-        b = hashlib.sha256(committed.read_bytes()).hexdigest()
+        a = hashlib.sha256(_lf(fresh.read_bytes())).hexdigest()
+        b = hashlib.sha256(_lf(committed.read_bytes())).hexdigest()
 
     assert a == b, (
         "showcase.html is stale. Something it renders has changed since it was "
