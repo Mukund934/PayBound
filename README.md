@@ -445,6 +445,10 @@ double-click. The Decision View has five columns and the fifth is the point:
 
 ## Read this before believing any number
 
+**[`VIDEO_SCRIPT.md`](VIDEO_SCRIPT.md)** is the five-minute run sheet — every
+command in it runs, every figure in it is checked against `verify.py` by a test,
+and it carries a list of things not to say on camera.
+
 **[`LIMITS.md`](LIMITS.md)** lists what this project does not show, what its
 adversary could not do, and which of its own citations are weaker than they
 look. **[`PREREG.md`](PREREG.md)** was committed four days before the run.
