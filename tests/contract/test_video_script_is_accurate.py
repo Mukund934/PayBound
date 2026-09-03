@@ -87,9 +87,25 @@ def test_the_ablation_figures_match_verify(script):
 
     prevented = re.search(r"prevented\s+(\d+) \(", out)
     assert prevented, "verify.py no longer reports prevented ALLOWs"
-    assert re.search(rf"\b{prevented.group(1)}\b", script), (
-        f"the script does not state that {prevented.group(1)} ALLOWs were prevented"
-    )
+    n = prevented.group(1)
+
+    # Positional, not "appears somewhere in the file". The loose version was
+    # satisfied while the script said "prevented seven approvals", because the
+    # digit 4 still occurred elsewhere on the page. A number that gets read
+    # aloud has to be checked where it is read.
+    words = {"1": "one", "2": "two", "3": "three", "4": "four", "5": "five",
+             "6": "six", "7": "seven", "8": "eight", "9": "nine", "10": "ten"}
+    allowed = {n, words.get(n, n)}
+
+    spoken = re.findall(r"prevented\s+(\w+)\s+approv", script, re.I)
+    # Digits only in the table form: "(\w+) prevented" also matches the prose
+    # "the precondition check prevented", and "check" is not a count.
+    tabled = re.findall(r"(\d+)\s+prevented", script, re.I)
+    assert spoken or tabled, "the script no longer says how many ALLOWs were prevented"
+    for found in spoken + tabled:
+        assert found.lower() in allowed, (
+            f"the script says {found!r} ALLOWs were prevented; verify.py says {n}"
+        )
 
 
 def test_the_rule_of_three_ceiling_quoted_is_the_one_printed(script):

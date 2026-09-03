@@ -9,6 +9,7 @@ is not testing the thing being demonstrated.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -130,6 +131,14 @@ _BOUND = "if add(existing_paise, proposed_paise) > payment_amount_paise:"
 _REFUNDS = Path(__file__).resolve().parents[1] / "paybound" / "rail" / "refunds.py"
 
 
+# I-10's harness deliberately runs a subprocess against a mutated file. The
+# guard below must not fire there, or the mutation test passes for the wrong
+# reason: the subprocess would exit on the guard instead of on the control test
+# failing, and `mutated_rc != 0` would be satisfied without the bound ever being
+# exercised. That is a hollowed-out mutation test, which is worse than none.
+_HARNESS_ENV = "PB_I10_MUTATION_SUBPROCESS"
+
+
 def _bound_is_live() -> bool:
     try:
         return _BOUND in _REFUNDS.read_text(encoding="utf-8")
@@ -156,6 +165,10 @@ def _aggregate_bound_is_not_left_disabled():
     So the state is checked at both ends. Not repaired: repairing it would hide
     how often it happens, and the remedy is one command the message names.
     """
+    if os.environ.get(_HARNESS_ENV):
+        # Inside I-10's own subprocess. Mutation is the point here.
+        yield
+        return
     if not _bound_is_live():
         pytest.exit(
             "REFUSING TO RUN: the aggregate bound in paybound/rail/refunds.py is "

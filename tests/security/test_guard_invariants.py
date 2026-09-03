@@ -12,6 +12,7 @@ this file mutates the source and asserts the failure.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -219,17 +220,32 @@ def _run_subset(source_override: tuple[Path, str] | None, node_ids: list[str]) -
             path, mutated = source_override
             original = path.read_text(encoding="utf-8")
             path.write_text(mutated, encoding="utf-8")
+        env = dict(os.environ)
+        if source_override is not None:
+            # Tell the child that a mutated tree is expected here, so the
+            # session guard in conftest does not exit before the control test
+            # runs. Without this the subprocess exits on the guard, the harness
+            # sees a non-zero code, and the mutation test passes without ever
+            # exercising the bound.
+            env["PB_I10_MUTATION_SUBPROCESS"] = "1"
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *node_ids],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             timeout=300,
+            env=env,
         )
         return proc.returncode
     finally:
         if path is not None and original is not None:
             path.write_text(original, encoding="utf-8")
+            # Confirm the restore landed. A finally that silently fails to write
+            # leaves the money guard disabled, which is the failure this whole
+            # arrangement exists to avoid.
+            assert original == path.read_text(encoding="utf-8"), (
+                f"failed to restore {path}; the aggregate bound may be disabled"
+            )
 
 
 @pytest.mark.slow
