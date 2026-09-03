@@ -197,3 +197,29 @@ def test_the_scanner_is_not_vacuous():
         re.match(r"(\d+)", k).group(1) for k in EXTERNAL
     }
     assert "9999" not in known
+
+
+def test_the_readme_test_count_row_is_bounded_not_frozen():
+    """The README table has a Tests row and it drifted twice.
+
+    It read "268 passing" against a suite of 1531, then "1531 collected" against
+    1547 sixteen commits later. A literal in a table nobody recomputes goes
+    stale on the next commit, and it sits in the row whose whole purpose is to
+    say "check me".
+
+    Stated approximately and bounded here, the same way AGENTS.md is. Exact is
+    not achievable in prose; honest is.
+    """
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    row = re.search(r"\|\s*Tests\s*\|([^|]+)\|", readme)
+    assert row, "the README no longer has a Tests row"
+    m = re.search(r"~?([\d,]+)", row.group(1))
+    assert m, f"the Tests row states no number: {row.group(1)!r}"
+    claimed = int(m.group(1).replace(",", ""))
+    actual = _collected_tests()
+    assert claimed <= actual, (
+        f"README advertises {claimed} tests; only {actual} are collected"
+    )
+    assert actual <= claimed * 1.15, (
+        f"README says ~{claimed} but {actual} are collected; update the row"
+    )

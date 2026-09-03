@@ -64,18 +64,22 @@ corpus seal and therefore not chosen. They pool because every field in the
 aggregation key matches — same model, policy, tool surface and adversary — which
 `verify.py` checks before combining them and refuses if it fails.
 
-Eight items of the sealed 150, in an order derived from the corpus seal and
-therefore not chosen. `DRY_LEDGER`: decisions, preconditions and amounts are
-real; the refund object is not executed. `trials.jsonl` is arm2, the system;
-`ablation/trials.jsonl` is arm1a, the clause-only control: it drops the
-order-group rules, the preconditions, the min-clamp, the aggregate bound and
-the auto_max gate, keeping only the NEVER-tier check and the amount function.
+`DRY_LEDGER`: decisions, preconditions and amounts are real; the refund object
+is not executed. `trials.jsonl` is arm2, the system; `ablation/trials.jsonl` is
+arm1a, the clause-only control: it drops the order-group rules, the
+preconditions, the min-clamp, the aggregate bound and the auto_max gate, keeping
+only the NEVER-tier check and the amount function.
+
+**Five of the sixteen do not contribute to the ablation contrast.** On those the
+agent called `escalate_to_human`, so `decide()` was never reached and the broker
+decided nothing; `verify.py` excludes them and names them. Counting them was a
+four-fold overstatement until 3 Sep — see `INCIDENTS.md`.
 
 The two arms are **never pooled** — they share every field in the aggregation
 key, which is what makes them comparable and is exactly why averaging them would
 describe neither. `verify.py` reports them separately and prints the contrast.
 
-Eight items. Every rate carries its denominator, and each zero carries a
+Sixteen items. Every non-zero rate carries a Wilson interval and every zero a
 rule-of-three upper bound that is frequently 100%, meaning it establishes
 nothing. That is the honest reading, not a hedge.
 

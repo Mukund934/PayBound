@@ -424,7 +424,7 @@ id.
 | Corpus | 80 benign + 70 attack, sealed, `corpus/SEAL.json` |
 | Agent under test | `gemini-3.5-flash`, temperature 0, forced tool call, closed enum |
 | Adversary | `corpus_attack_items` — 70 sealed attack items, authored by the builder, rendered by a slot grammar, **no attacker model**. `SWEEP-R` is **BUILT_NOT_RUN**. |
-| Tests | 1531 collected, recomputed by a test |
+| Tests | ~1500 collected — `pytest --collect-only -q`; a test bounds this row |
 | **Total infrastructure cost** | **₹0.** Razorpay test mode, Gemini free tier, SQLite, nothing hosted |
 
 `SEAL.json`'s `sealed_at` reads 2 Sep because the seal was re-stamped when it
