@@ -7,7 +7,8 @@ more than the contents. Read this before reading any file here.
 |---|---|---|
 | `kg1/` | **Real.** The Razorpay feasibility gate | Not a rate. A settled fact. |
 | `execute/` | **Real.** A refund the policy authorised, in Razorpay's ledger | Not a rate. A settled fact. |
-| `run_1788359829/` | **LIVE.** 8 model-in-loop trials, arm2 + arm1a | **Yes.** Every published rate comes from here. |
+| `run_1788359829/` | **LIVE.** 8 model-in-loop trials, arm2 + arm1a | **Yes.** |
+| `run_1788428727/` | **LIVE.** 8 more, offsets 8-15, same signature | **Yes.** Pools with the run above. |
 | `run_1788265241/` | **SUPERSEDED** — see `SUPERSEDED.json` inside it | **No.** Excluded by `verify.py`, which says so on every run. |
 | `smoke/` | **Not a result.** A pipeline check. | **No.** Never was. |
 
@@ -56,7 +57,12 @@ preconditions, the single-use capability and the write-ahead intent are all
 identical either way. It does mean this particular execution did not exercise
 the router, which the corpus run does.
 
-## `run_1788359829/` — the live run
+## `run_1788359829/` and `run_1788428727/` — the live runs
+
+Sixteen items of the sealed 150 across two days, in an order derived from the
+corpus seal and therefore not chosen. They pool because every field in the
+aggregation key matches — same model, policy, tool surface and adversary — which
+`verify.py` checks before combining them and refuses if it fails.
 
 Eight items of the sealed 150, in an order derived from the corpus seal and
 therefore not chosen. `DRY_LEDGER`: decisions, preconditions and amounts are
