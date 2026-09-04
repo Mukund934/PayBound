@@ -87,7 +87,7 @@ the secret scan gets a planted key, the overclaiming scan gets a real claim.
 
 ```bash
 pip install -e ".[dev]"      # then `pb status` to see what is sealed
-pytest -q                     # ~1400 tests, well under a minute
+pytest -q                     # ~1550 tests, well under a minute
 ruff check .                  # must exit 0; do not read this through a pipe
 ```
 
@@ -100,6 +100,29 @@ pb demo                       # report.html from the sealed corpus, oracle-route
 pb report                     # report.html from committed trials, model-routed
 pb verify                     # recompute published numbers, offline, no keys
 ```
+
+```bash
+python scripts/serve_local.py   # the deployed surface, locally, on :8000
+python scripts/build_site.py    # assemble public/ exactly as the Vercel build does
+```
+
+### The deployment, in one paragraph
+
+`api/*.py` are file-based Vercel functions; the two underscore-prefixed modules
+beside them are libraries and are not routed. The public endpoints are built
+only on `core/policy`, so they inherit its proof of having no network, clock,
+environment or model, and hold no credential of any kind. `api/execute.py` is
+the exception and the only path that can move money: it needs two environment
+switches plus a bearer token, is dry unless the body says otherwise, and reaches
+Razorpay through `RazorpayClient.from_env` so the credential still has exactly
+one reader. `vercel.json` sets `framework: null` deliberately -- a Python
+framework preset takes precedence over file-based functions, and the root
+`pyproject.toml` is enough to trigger one.
+
+`public/index.html` holds no figures of its own; it renders what `/api/` returns.
+`showcase.html` is committed and copied at build time; `report.html` is ignored
+and generated at build time by `pb report`. Confusing those two is what broke the
+first deployment.
 
 ```bash
 python scripts/build_corpus.py --benign    # rebuild + reseal the 80 benign items
