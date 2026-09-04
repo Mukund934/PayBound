@@ -510,15 +510,67 @@ def test_anchored_chapters_clear_the_sticky_header():
     )
 
 
-def test_the_progress_fill_is_transform_based():
+def test_the_progress_bar_is_transform_based():
     """A width animation on every scroll event would thrash layout.
 
-    scaleX on an always-laid-out pseudo-element costs no layout at all, which
-    is what lets the fill track scrolling continuously.
+    scaleX on an always-laid-out element costs no layout at all, which is what
+    lets the bar track scrolling continuously.
     """
     page = _page()
-    assert "transform:scaleX(var(--p))" in page, "the fill is not transform-driven"
-    assert "transform-origin:left" in page, "the fill does not grow left to right"
+    assert "transform:scaleX(var(--sp,0))" in page, "the bar is not transform-driven"
+    assert "transform-origin:left" in page, "the bar does not grow left to right"
+
+
+def test_the_header_is_sticky_and_nothing_disables_it():
+    """`overflow-x:hidden` on html/body silently kills `position:sticky`.
+
+    This is the defect this commit fixes and it is invisible to the obvious
+    check: a non-sticky header still reports top:0 at scroll position 0, so a
+    test that measures without scrolling passes while the header scrolls away.
+    Guard the cause instead of the symptom.
+    """
+    page = _page()
+    css = page.split("</style>", 1)[0]
+    assert "position:sticky" in css, "the header is no longer sticky"
+    import re
+
+    for m in re.finditer(r"(html|body)[^{}]*\{[^{}]*\}", css):
+        block = m.group(0)
+        if "overflow-x:hidden" in block.replace(" ", ""):
+            raise AssertionError(
+                "overflow-x:hidden on html/body makes the body a scrolling box "
+                "and disables the sticky header; prevent overflow at its source"
+            )
+
+
+def test_progress_is_the_whole_document_not_a_section():
+    """The bar answers "how far through the page", not "how far through this
+    chapter". Those are different questions and were conflated once already."""
+    page = _page()
+    script = page.split("<script>", 1)[1]
+    assert "scrollHeight" in script, "progress is not derived from document height"
+    assert "scrollY / MAX" in script, "progress is not scroll position over distance"
+    # Clamped, so overscroll and rubber-banding cannot drive it past the ends.
+    assert "Math.min(1, Math.max(0, scrollY / MAX))" in script, "progress is not clamped"
+
+
+def test_the_progress_bar_reports_itself_to_assistive_technology():
+    page = _page()
+    assert 'role="progressbar"' in page
+    assert 'aria-valuemin="0"' in page and 'aria-valuemax="100"' in page
+    assert "aria-valuenow" in page
+    assert 'aria-label="Reading progress"' in page
+
+
+def test_progress_survives_the_page_growing_after_load():
+    """The scrollable distance was cached once and the corpus then rendered.
+
+    The bar divided by a stale distance and read 30% at the quarter mark, so
+    the cache has to notice the document changing height.
+    """
+    script = _page().split("<script>", 1)[1]
+    assert "LAST_H" in script, "the cached document height is never revalidated"
+    assert "if (height !== LAST_H)" in script, "a changed page height triggers no remeasure"
 
 
 def test_reduced_motion_keeps_the_active_chapter_legible():
