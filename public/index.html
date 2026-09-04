@@ -23,7 +23,13 @@
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-html,body{max-width:100%;overflow-x:hidden}
+/* No overflow-x:hidden here. It makes the body a scrolling box, which
+   silently disables position:sticky on the header -- the header then scrolls
+   away with the page while still reporting top:0 at scroll position 0, so the
+   obvious check passes and the bug ships. Horizontal overflow is prevented at
+   its sources instead: min-width:0 on grid children and overflow-wrap on the
+   long tokens. */
+html,body{max-width:100%}
 body{margin:0;background:var(--bg);color:var(--txt);
   font:400 16px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
@@ -36,6 +42,7 @@ a{color:inherit;text-decoration:none}
 
 /* ═══ nav ═════════════════════════════════════════════════════════════════ */
 nav{position:sticky;top:0;z-index:50;background:rgba(8,9,11,.82);
+  isolation:isolate;
   backdrop-filter:blur(14px);border-bottom:1px solid transparent;
   transition:border-color .3s var(--ease)}
 nav.stuck{border-bottom-color:var(--hair)}
@@ -51,19 +58,27 @@ nav.stuck{border-bottom-color:var(--hair)}
 .nav-links a:hover{color:var(--txt-2)}
 .nav-links a[aria-current="true"]{color:var(--txt)}
 .nav-links a[aria-current="true"] .no{color:var(--ink);opacity:1}
-/* The rail under every item is always present; only its scale changes. A
-   permanently-laid-out element that scales cannot thrash layout, and the fill
-   reads as the chapter filling up rather than as a highlight snapping on. */
-.nav-links a::before{content:"";position:absolute;left:0;right:0;bottom:-3px;
-  height:1px;background:var(--hair-2)}
+/* The active chapter is marked, not filled. Filling each item conflated two
+   different questions -- "where am I in the story" and "which chapter is this"
+   -- into one indicator that answered neither cleanly. Progress is now the
+   single global bar under the header; this is only identity. */
 .nav-links a::after{content:"";position:absolute;left:0;right:0;bottom:-3px;
-  height:1px;background:var(--ink);transform:scaleX(var(--p));transform-origin:left center;
-  transition:transform .1s linear}
-@media(prefers-reduced-motion:reduce){
-  /* No creeping fill; the bar is simply full for the chapter you are in. */
-  .nav-links a::after{transition:none;transform:scaleX(0)}
-  .nav-links a[aria-current="true"]::after{transform:scaleX(1)}
-}
+  height:1px;background:var(--ink);transform:scaleX(0);transform-origin:left center;
+  transition:transform .28s var(--ease)}
+.nav-links a[aria-current="true"]::after{transform:scaleX(1)}
+@media(prefers-reduced-motion:reduce){.nav-links a::after{transition:none}}
+
+/* ── global reading progress ─────────────────────────────────────────────
+   One bar, the whole document: 0 at the top, 1 at the last scrollable pixel.
+   It sits on the header's bottom edge so navigation and position read as one
+   control. scaleX on an always-laid-out element, so tracking the scroll
+   continuously costs no layout. */
+.progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  pointer-events:none;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--ink);
+  transform:scaleX(var(--sp,0));transform-origin:left center;
+  transition:transform .08s linear}
+@media(prefers-reduced-motion:reduce){.progress i{transition:none}}
 
 /* ── mobile: a real chapter sheet, not a shrunken desktop nav ───────────── */
 .nav-btn{display:none;margin-left:auto;align-items:center;gap:8px;
@@ -295,6 +310,8 @@ footer{padding:var(--s7) 0 var(--s8);border-top:1px solid var(--hair);color:var(
     <span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>
   </button>
 </div>
+<div class="progress" id="progress" role="progressbar" aria-label="Reading progress"
+     aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
 <div class="sheet" id="sheet" hidden>
   <a href="#top"><span class="no">01</span>Problem</a>
   <a href="#boundary"><span class="no">02</span>Boundary</a>
@@ -559,36 +576,56 @@ const nav = $("#nav");
 const CHAPTERS = $$("section.ch").map(el => el.id);
 const LINKS = $$('nav a[href^="#"]');
 
-function navHeight(){
+const bar = $("#progress");
+
+/* Layout is measured here and nowhere else. Section offsets and the scrollable
+   distance are cached, so a scroll event is pure arithmetic on numbers already
+   in hand -- no getBoundingClientRect, no forced reflow, per frame. Remeasured
+   when the viewport changes and when the document's own height changes, which
+   is what happens as the corpus loads and as disclosures open. */
+let MAX = 0, TOPS = [], LAST_H = -1;
+function measure(){
+  const doc = document.documentElement;
+  LAST_H = doc.scrollHeight;
+  MAX = Math.max(0, LAST_H - innerHeight);
+  const y = scrollY;
+  TOPS = CHAPTERS.map(id => {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {id, top:r.top + y};
+  }).filter(Boolean);
+  nav.style.setProperty("--nav-h", "");
   document.documentElement.style.setProperty("--nav-h", nav.offsetHeight + "px");
 }
 
 function paint(){
   nav.classList.toggle("stuck", scrollY > 8);
 
-  const line = innerHeight * 0.4;
-  const box = CHAPTERS.map(id => {
-    const el = document.getElementById(id);
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    return {id, top:r.top, h:r.height};
-  }).filter(Boolean);
+  /* Global reading progress: the whole document, 0 to 1. Deliberately not
+     derived from sections -- a chapter-relative figure answers a different
+     question and cannot reach 1 at the last pixel of the page.
 
-  let current = box[0] && box[0].id;
-  for (const b of box) if (b.top <= line) current = b.id;
+     scrollHeight is read here rather than trusted from the cache. It was
+     cached once and the page then grew as the corpus rendered, so the bar was
+     dividing by a stale distance and read 30% at the quarter mark. During a
+     scroll no styles are dirty, so this read is served from the browser's own
+     cached layout; when the number does move, the section offsets are stale
+     too and both are refreshed together. */
+  const height = document.documentElement.scrollHeight;
+  if (height !== LAST_H){ LAST_H = height; measure(); }
+  const p = MAX > 0 ? Math.min(1, Math.max(0, scrollY / MAX)) : 0;
+  bar.firstElementChild.style.setProperty("--sp", p.toFixed(4));
+  bar.setAttribute("aria-valuenow", String(Math.round(p * 100)));
 
-  const order = box.map(b => b.id);
-  const at = order.indexOf(current);
+  /* Which chapter is being read. A separate question with a separate answer:
+     the last chapter whose top has crossed the activation line. */
+  const line = scrollY + innerHeight * 0.4;
+  let current = TOPS.length ? TOPS[0].id : null;
+  for (const t of TOPS) if (t.top <= line) current = t.id;
 
   for (const a of LINKS){
     const id = a.getAttribute("href").slice(1);
-    const i = order.indexOf(id);
-    const b = box[i];
-    let p = 0;
-    if (i >= 0 && i < at) p = 1;                       // chapters already read
-    else if (id === current && b && b.h > 0)           // the one being read
-      p = Math.min(1, Math.max(0, (line - b.top) / b.h));
-    a.style.setProperty("--p", p.toFixed(3));
     if (id === current) a.setAttribute("aria-current", "true");
     else a.removeAttribute("aria-current");
   }
@@ -610,8 +647,12 @@ function paint(){
    doing anyway. Correct beats clever on a control the reader steers by. */
 function onScroll(){ paint(); }
 addEventListener("scroll", onScroll, {passive:true});
-addEventListener("resize", () => { navHeight(); onScroll(); }, {passive:true});
-navHeight(); paint();
+addEventListener("resize", () => { measure(); paint(); }, {passive:true});
+/* The page grows as the corpus renders and as disclosures open, and a stale
+   scrollable distance would stop the bar short of the right edge. */
+if ("ResizeObserver" in window)
+  new ResizeObserver(() => { measure(); paint(); }).observe(document.body);
+measure(); paint();
 
 /* ── mobile sheet ───────────────────────────────────────────────────────── */
 const btn = $("#navbtn"), sheet = $("#sheet");
