@@ -409,3 +409,80 @@ def test_the_interpreter_is_pinned_to_a_tested_version():
     """
     pin = (REPO / ".python-version").read_text(encoding="utf-8").strip()
     assert pin == "3.13", f"expected the pinned interpreter to be 3.13, found {pin!r}"
+
+
+# --- the page's structural claims -------------------------------------------
+#
+# The redesign made the argument visual, which means the argument can now break
+# by CSS or by a renamed element rather than by a wrong number. These pin the
+# structure the page relies on to make its case.
+
+
+def _page() -> str:
+    return (PUBLIC / "index.html").read_text(encoding="utf-8")
+
+
+def test_the_absent_fields_are_named_on_the_page():
+    """The signature claim is that `amount` and `payment_id` do not exist.
+
+    They are rendered as absent slots rather than described in prose, so the
+    two names and the phrase that marks them have to survive an edit.
+    """
+    page = _page()
+    assert '"amount","payment_id"' in page.replace(" ", ""), (
+        "the page no longer renders the two absent fields; the attack chapter's "
+        "argument is that these are undeclared, so they must appear as slots"
+    )
+    assert "not a field" in page
+
+
+def test_the_page_does_not_call_the_attack_blocked():
+    """"Blocked" is the claim this system explicitly does not make.
+
+    A filter that blocks is a different architecture with a different failure
+    mode. The page may use the word only to deny it.
+    """
+    import re
+
+    body = _page().split("<body>", 1)[1]
+    for m in re.finditer(r"blocked", body, re.I):
+        window = body[max(0, m.start() - 90):m.end() + 40].lower()
+        assert "not" in window or "<s>" in window, (
+            "the page asserts the attack was 'blocked'; the claim is that it is "
+            "inexpressible, which is a different and stronger statement"
+        )
+
+
+def test_every_nav_anchor_resolves_to_a_chapter():
+    """A nav link to a section that does not exist is a dead control."""
+    import re
+
+    page = _page()
+    anchors = set(re.findall(r'<a href="#([a-z-]+)"', page))
+    ids = set(re.findall(r'<section class="ch" id="([a-z-]+)"', page))
+    assert anchors, "the page has no in-page navigation"
+    missing = anchors - ids
+    assert not missing, f"nav links point at no chapter: {sorted(missing)}"
+
+
+def test_the_chapters_are_numbered_in_order():
+    import re
+
+    numbers = re.findall(r'<div class="ch-no">(\d+)</div>', _page())
+    assert numbers == sorted(numbers), f"chapter numbers are out of order: {numbers}"
+    assert len(set(numbers)) == len(numbers), "a chapter number is duplicated"
+
+
+def test_motion_is_opt_in_so_a_script_failure_leaves_the_page_readable():
+    """The hidden state must be gated on a class the script adds.
+
+    An earlier version applied `opacity:0` from the stylesheet and revealed it
+    from an IntersectionObserver callback, so any script failure rendered a
+    blank page at full height.
+    """
+    page = _page()
+    assert "html.anim .rise" in page, "the hidden state is not gated on a script-set class"
+    assert not re.search(r"^\.rise\{opacity:0", page, re.M), (
+        "`.rise` is hidden unconditionally; a script failure would blank the page"
+    )
+    assert "prefers-reduced-motion" in page
