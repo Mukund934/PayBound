@@ -486,3 +486,82 @@ def test_motion_is_opt_in_so_a_script_failure_leaves_the_page_readable():
         "`.rise` is hidden unconditionally; a script failure would blank the page"
     )
     assert "prefers-reduced-motion" in page
+
+
+# --- the chapter navigator --------------------------------------------------
+#
+# The nav is the one control a reader steers by on a long page, so its
+# guarantees are pinned rather than eyeballed.
+
+
+def test_anchored_chapters_clear_the_sticky_header():
+    """Without scroll-margin-top a nav click hides the heading under the bar.
+
+    The header is sticky, so scrolling a section to y=0 puts its title behind
+    the thing the reader just clicked. The offset must be derived from the
+    measured header height, not from a second hard-coded number that can drift.
+    """
+    page = _page()
+    assert "--nav-h" in page, "the header height is not exposed as a token"
+    assert "scroll-margin-top:calc(var(--nav-h)" in page.replace(" ", "").replace(
+        "scroll-margin-top:calc(var(--nav-h)", "scroll-margin-top:calc(var(--nav-h)"
+    ) or "scroll-margin-top:calc(var(--nav-h)" in page, (
+        "chapters do not clear the sticky header when jumped to"
+    )
+
+
+def test_the_progress_fill_is_transform_based():
+    """A width animation on every scroll event would thrash layout.
+
+    scaleX on an always-laid-out pseudo-element costs no layout at all, which
+    is what lets the fill track scrolling continuously.
+    """
+    page = _page()
+    assert "transform:scaleX(var(--p))" in page, "the fill is not transform-driven"
+    assert "transform-origin:left" in page, "the fill does not grow left to right"
+
+
+def test_reduced_motion_keeps_the_active_chapter_legible():
+    """With motion off the bar must still say where you are, not go blank."""
+    page = _page()
+    block = page.split("@media(prefers-reduced-motion:reduce)")
+    assert len(block) > 1
+    assert any('a[aria-current="true"]::after{transform:scaleX(1)}' in b.replace(" ", "")
+               for b in block[1:]), (
+        "with reduced motion the fill is disabled but nothing marks the active "
+        "chapter, so position is communicated by nothing at all"
+    )
+
+
+def test_the_navigator_does_not_depend_on_a_latch_that_can_stick():
+    """An rAF 'already queued' flag never clears if a frame never arrives.
+
+    Observed while testing: with frames starved the navigator froze for the
+    rest of the session. The scroll handler must not gate on such a flag.
+    """
+    page = _page()
+    script = page.split("<script>", 1)[1]
+    assert "ticking" not in script, (
+        "a coalescing latch is back in the scroll path; if a frame never "
+        "arrives the navigator stops updating permanently"
+    )
+
+
+def test_mobile_navigation_exists_and_is_labelled():
+    """Below the desktop breakpoint there must still be a way to navigate."""
+    page = _page()
+    assert 'id="navbtn"' in page and 'id="sheet"' in page, "no mobile navigation"
+    assert 'aria-expanded="false"' in page, "the trigger declares no expanded state"
+    assert 'aria-controls="sheet"' in page, "the trigger is not tied to its panel"
+
+
+def test_the_mobile_sheet_lists_every_chapter():
+    """A chapter missing from the sheet is unreachable on a phone."""
+    import re
+
+    page = _page()
+    ids = re.findall(r'<section class="ch" id="([a-z-]+)"', page)
+    sheet = page.split('id="sheet"', 1)[1].split("</div>", 1)[0]
+    listed = set(re.findall(r'href="#([a-z-]+)"', sheet))
+    missing = set(ids) - listed
+    assert not missing, f"chapters unreachable from the mobile sheet: {sorted(missing)}"
