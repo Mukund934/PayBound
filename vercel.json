@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "mkdir -p public && cp showcase.html report.html public/ && test -s public/showcase.html && test -s public/report.html",
+  "buildCommand": "python3 scripts/build_site.py",
   "outputDirectory": "public",
   "functions": {
     "api/**/*.py": {
@@ -11,16 +11,31 @@
     }
   },
   "rewrites": [
-    { "source": "/showcase", "destination": "/showcase.html" },
-    { "source": "/report", "destination": "/report.html" }
+    {
+      "source": "/showcase",
+      "destination": "/showcase.html"
+    },
+    {
+      "source": "/report",
+      "destination": "/report.html"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"

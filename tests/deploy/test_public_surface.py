@@ -331,29 +331,81 @@ def test_the_shared_modules_are_not_routable():
         )
 
 
-def test_the_static_root_receives_the_committed_pages():
-    """`/showcase` and `/report` rewrite to files that must exist in the output.
+def _tracked() -> set[str]:
+    """What a fresh checkout actually contains. Not what this disk contains."""
+    import subprocess
 
-    They are committed at the repository root, not in the static root, so the
-    build has to copy them. Without this the rewrites resolve to nothing and
-    both routes 404 on a build that otherwise looks green -- which is exactly
-    what the first configuration would have done.
+    out = subprocess.run(
+        ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout
+    return set(out.split())
+
+
+def test_the_two_pages_reach_the_static_root_by_their_own_routes():
+    """One page is committed and one is generated. The build must know which.
+
+    This is the assertion the first version got wrong, and it got it wrong the
+    same way the build command did: it asked whether the file was *on disk*.
+    A developer's disk has ``report.html`` left over from the last ``pb report``,
+    so both the test and the build passed locally and the deploy failed on the
+    first clean checkout with ``cp: cannot stat 'report.html'``.
+
+    What matters is what git tracks, so that is what this reads.
     """
     cfg = _vercel()
+    tracked = _tracked()
     assert cfg["outputDirectory"] == "public"
-    build = cfg["buildCommand"]
-    for page in ("showcase.html", "report.html"):
-        assert (REPO / page).is_file(), f"{page} is not committed at the root"
-        assert page in build, f"the build does not place {page} in the static root"
-        dest = cfg["outputDirectory"] + "/" + page
-        assert f"test -s {dest}" in build, f"the build does not verify {dest}"
+
+    # showcase.html is a committed artifact, guarded by a byte-identity test.
+    assert "showcase.html" in tracked, "showcase.html must stay committed"
+    # report.html is generated on demand and deliberately never committed.
+    assert "report.html" not in tracked, (
+        "report.html has been committed. It is generated from the committed "
+        "trials by `pb report`, and a committed copy has no staleness guard "
+        "the way showcase.html does."
+    )
 
     destinations = {r["destination"] for r in cfg["rewrites"]}
     assert destinations == {"/showcase.html", "/report.html"}
 
 
-def test_the_build_copies_rather_than_commits_a_second_page():
-    """A committed duplicate could drift from the render the tests check."""
+def test_the_build_runs_the_script_that_knows_the_difference():
+    cfg = _vercel()
+    build = cfg["buildCommand"]
+    assert "scripts/build_site.py" in build, (
+        "the build must go through build_site.py, which copies the committed "
+        "page and generates the generated one"
+    )
+    assert (REPO / "scripts" / "build_site.py").is_file()
+    # A bare `cp` of both pages is the defect this replaced.
+    assert "cp showcase.html report.html" not in build
+
+
+def test_the_build_script_generates_rather_than_duplicates_the_report():
+    """It must call the documented command, not re-implement the renderer."""
+    src = (REPO / "scripts" / "build_site.py").read_text(encoding="utf-8")
+    assert "from paybound.cli import main" in src
+    assert '"report"' in src or "'report'" in src
+    # A second renderer in the deployment could drift from `pb report`.
+    assert "render_report" not in src and "DecisionRow" not in src
+
+
+def test_neither_page_is_committed_inside_the_static_root():
+    """A duplicate under public/ could drift from the render the tests check."""
+    tracked = _tracked()
     ignored = (REPO / ".gitignore").read_text(encoding="utf-8")
     for page in ("public/showcase.html", "public/report.html"):
-        assert page in ignored, f"{page} must not be committed"
+        assert page not in tracked, f"{page} must not be committed"
+        assert page in ignored, f"{page} must be ignored"
+
+
+def test_the_interpreter_is_pinned_to_a_tested_version():
+    """The build image chose 3.14.7, which this repository does not test on.
+
+    CI runs 3.11 and local development runs 3.13. Deploying a public demo on an
+    interpreter no suite has ever executed is a risk taken for no reason, so the
+    version is pinned rather than inherited from whatever the builder defaults
+    to that month.
+    """
+    pin = (REPO / ".python-version").read_text(encoding="utf-8").strip()
+    assert pin == "3.13", f"expected the pinned interpreter to be 3.13, found {pin!r}"
