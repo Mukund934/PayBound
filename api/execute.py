@@ -120,12 +120,18 @@ class handler(BaseHTTPRequestHandler):  # platform-mandated class name
 
     def _run(self) -> tuple[dict[str, Any], int]:
         try:
+            # Drain the request body BEFORE any refusal. Answering 503 while the
+            # client is still writing leaves unread bytes in the socket, and the
+            # client sees a connection abort rather than the refusal we sent --
+            # so a correctly-refused call looks like a broken endpoint. Reading
+            # first costs nothing: the body is capped and, on every path that
+            # refuses, discarded unparsed.
+            raw = self._drain()
             if not execution_enabled():
                 raise Denied(503, "execution is not enabled on this deployment")
             authorize(self.headers.get("Authorization"))
             rate_limit("protected", self.headers.get("x-forwarded-for", "local"))
-            req = self._read_body()
-            return self._execute(req)
+            return self._execute(self._parse(raw))
         except Denied as d:
             return {"error": d.message}, d.status
         except Exception:
@@ -133,12 +139,18 @@ class handler(BaseHTTPRequestHandler):  # platform-mandated class name
             # can carry a URL, a header or an id that the caller should not see.
             return {"error": "the request could not be completed"}, 500
 
-    def _read_body(self) -> dict[str, Any]:
+    def _drain(self) -> bytes:
+        """Read the declared body, capped. Never parses, never trusts."""
         length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0 or length > _MAX_BODY:
+        if length <= 0:
+            return b""
+        return self.rfile.read(min(length, _MAX_BODY))
+
+    def _parse(self, raw: bytes) -> dict[str, Any]:
+        if not raw or len(raw) >= _MAX_BODY:
             raise Denied(400, "body must be a small JSON object")
         try:
-            req = json.loads(self.rfile.read(length).decode("utf-8"))
+            req = json.loads(raw.decode("utf-8"))
         except Exception as exc:
             raise Denied(400, "body must be valid JSON") from exc
         if not isinstance(req, dict):

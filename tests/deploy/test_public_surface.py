@@ -252,3 +252,108 @@ def test_the_page_declares_a_content_security_policy():
     assert "default-src 'self'" in csp
     assert "frame-ancestors 'none'" in csp
     assert "form-action 'none'" in csp
+
+
+# --- the deployment configuration -------------------------------------------
+#
+# The first deployment failed because Vercel detected a Python framework preset
+# from the root pyproject.toml and went looking for a single ASGI entrypoint:
+#
+#   No python entrypoint found in default locations, but found potential
+#   entrypoints: api/corpus.py (variable: handler), ...
+#
+# Its suggested fix -- tool.vercel.entrypoint = "api.corpus:handler" -- would
+# have made the corpus endpoint the entire application and silently deleted the
+# other three routes. The documented behaviour is that a framework preset takes
+# precedence over file-based functions, so the fix is to declare no preset.
+# These tests pin that, because the failure mode is a deployment that builds
+# green while serving one route.
+
+
+def _vercel() -> dict:
+    return json.loads((REPO / "vercel.json").read_text(encoding="utf-8"))
+
+
+def test_no_framework_preset_is_declared():
+    """null selects "Other", which is what keeps /api file-based."""
+    cfg = _vercel()
+    assert "framework" in cfg, "framework must be declared, not left to detection"
+    assert cfg["framework"] is None
+
+
+def test_no_single_entrypoint_is_configured_anywhere():
+    """The four handlers are four functions. None of them is 'the app'."""
+    pyproject = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.vercel]" not in pyproject, (
+        "a tool.vercel entrypoint would designate one handler as the whole "
+        "application and drop the other three routes"
+    )
+    assert "entrypoint" not in _vercel()
+
+
+def test_every_api_route_is_covered_by_the_functions_glob():
+    """The glob must match all four files, or a route silently vanishes.
+
+    Resolved against the filesystem with pathlib rather than fnmatch. The two
+    disagree about ``**``: fnmatch's ``*`` crosses ``/``, so ``api/**/*.py``
+    there demands a subdirectory and misses every flat endpoint. pathlib and
+    node-glob -- which is what Vercel actually uses -- both let ``**`` match
+    zero directories. Asserting with the wrong dialect is how a test rejects a
+    configuration that would have deployed correctly.
+    """
+    globs = list(_vercel()["functions"])
+    endpoints = sorted(p.name for p in API.glob("*.py") if not p.name.startswith("_"))
+    assert endpoints == ["corpus.py", "decide.py", "execute.py", "health.py"]
+
+    matched: set[str] = set()
+    for g in globs:
+        matched |= {p.name for p in REPO.glob(g)}
+    for name in endpoints:
+        assert name in matched, f"api/{name} matches no glob in {globs}"
+
+
+def test_the_shared_modules_are_not_routable():
+    """``_engine`` and ``_http`` are libraries, not endpoints.
+
+    Routing is decided by the filename, not by the ``functions`` glob: Vercel
+    ignores files under /api that start with ``_`` or ``.`` or end in
+    ``.d.ts``, and will not turn them into functions. The glob may match them
+    -- it only supplies memory and bundling config -- so the property that
+    actually keeps ``/api/_engine`` from existing is the leading underscore,
+    and that is what this pins.
+    """
+    shared = [p.name for p in API.glob("*.py") if p.name not in {"__init__.py"}]
+    shared = [n for n in shared if n not in {"corpus.py", "decide.py", "execute.py", "health.py"}]
+    assert shared, "no shared modules found; this test would prove nothing"
+    for name in shared:
+        assert name.startswith("_"), (
+            f"api/{name} would be routed as /api/{name[:-3]}; prefix it with _"
+        )
+
+
+def test_the_static_root_receives_the_committed_pages():
+    """`/showcase` and `/report` rewrite to files that must exist in the output.
+
+    They are committed at the repository root, not in the static root, so the
+    build has to copy them. Without this the rewrites resolve to nothing and
+    both routes 404 on a build that otherwise looks green -- which is exactly
+    what the first configuration would have done.
+    """
+    cfg = _vercel()
+    assert cfg["outputDirectory"] == "public"
+    build = cfg["buildCommand"]
+    for page in ("showcase.html", "report.html"):
+        assert (REPO / page).is_file(), f"{page} is not committed at the root"
+        assert page in build, f"the build does not place {page} in the static root"
+        dest = cfg["outputDirectory"] + "/" + page
+        assert f"test -s {dest}" in build, f"the build does not verify {dest}"
+
+    destinations = {r["destination"] for r in cfg["rewrites"]}
+    assert destinations == {"/showcase.html", "/report.html"}
+
+
+def test_the_build_copies_rather_than_commits_a_second_page():
+    """A committed duplicate could drift from the render the tests check."""
+    ignored = (REPO / ".gitignore").read_text(encoding="utf-8")
+    for page in ("public/showcase.html", "public/report.html"):
+        assert page in ignored, f"{page} must not be committed"

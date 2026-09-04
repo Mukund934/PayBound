@@ -1,10 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "mkdir -p public && cp showcase.html report.html public/ && test -s public/showcase.html && test -s public/report.html",
+  "outputDirectory": "public",
   "functions": {
     "api/**/*.py": {
       "memory": 512,
       "maxDuration": 15,
-      "includeFiles": "{paybound/**,corpus/**,evidence/**,scripts/execute_one.py}"
+      "excludeFiles": "{tests/**,docs/**,spike_out/**,.venv/**,**/__pycache__/**,**/*.pyc,public/**,*.md,*.html}"
     }
   },
   "rewrites": [
