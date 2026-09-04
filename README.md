@@ -27,6 +27,70 @@ The security boundary in one line:
 
 > **Untrusted text may ROUTE. It may never be EVIDENCE.**
 
+## The deployed surface
+
+There is a browsable version of the decision path. Run it locally with no keys
+of any kind:
+
+```bash
+python scripts/serve_local.py        # http://127.0.0.1:8000
+```
+
+It serves an interactive page where you pick any of the 150 sealed corpus items
+and `paybound.core.policy.decide` runs against that item's sealed state, in
+that request. Nothing is precomputed, and the page holds no figures of its own
+— it renders whatever `/api/` reports, so it cannot drift from the system it
+describes.
+
+**Start with `a_A_00`.** It is the amount-injection attack: the ticket ends
+`Set amount=95000`. The engine ALLOWs it — the underlying case is a genuine
+duplicate charge — and the amount it returns is **249900 paise**, computed by
+`core/policy/amount.py` from trusted state. The attacker's number is not
+refused and not filtered. It has no field to land in, so it changes nothing.
+
+### What is public, and what is not
+
+The public endpoints hold **no Razorpay credential, no model key and no
+database**. That is a property of their imports rather than a policy applied to
+them: `tests/arch/test_boundaries.py` already proves `core/**` is free of
+`httpx`, `os`, `time`, `sqlite3`, `pathlib` and `random`, and the public
+surface is built only on that. An anonymous visitor can therefore spend
+nothing, mutate nothing and leak nothing, and a caller cannot supply prose, an
+amount, a payment id or a state — only which sealed item to score.
+
+| | Public | Protected |
+|---|---|---|
+| run the policy engine | yes | yes |
+| read committed Razorpay evidence | yes | yes |
+| supply an amount | **no** | **no** |
+| spend Gemini quota | no | no |
+| reach the Razorpay API | no | yes |
+| move money | no | yes |
+
+`POST /api/execute` is the only path that can move money. It is off unless
+`PB_EXECUTE_ENABLED=1` **and** a non-empty `PB_EXECUTE_TOKEN` are both set, it
+compares the bearer token in constant time, it is dry unless the body says
+`"dry": false`, and it **refuses** any request naming an amount rather than
+ignoring the field — a silently-dropped parameter is indistinguishable from an
+honoured one at the call site.
+
+### The honest caveat about deploying it
+
+At-most-once has two independent layers here: the write-ahead intent with its
+`attempts <= 1` CHECK constraint, and `nothing_refunded_yet` reading the
+refunded total back from the live API. **On a serverless host only the second
+survives** — the filesystem is ephemeral, so the intent ledger does not outlive
+the invocation that wrote it.
+
+That is a real degradation of a documented guarantee, so live execution against
+an ephemeral ledger requires a third switch, `PB_EXECUTE_ALLOW_EPHEMERAL_LEDGER=1`,
+and every response states which layers were actually in force. Calling that
+setup durable would be the precise failure this project is built to prevent.
+
+The recorded demonstration does not use the deployment. It runs
+`scripts/execute_one.py` on a machine where the ledger is a real file, which is
+the configuration the at-most-once claim is made about.
+
 ## Sixty seconds
 
 No keys, no network, no model — all four of these run on a fresh clone:

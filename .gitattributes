@@ -14,6 +14,7 @@ evidence/**          text eol=lf
 *.jsonl              text eol=lf
 verify.py            text eol=lf
 showcase.html        text eol=lf
+public/index.html    text eol=lf
 
 # Binary
 *.png binary

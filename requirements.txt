@@ -1,0 +1,8 @@
+# Vercel installs this for the serverless functions under api/.
+#
+# Only the privileged endpoint needs anything: paybound.rail talks to Razorpay
+# over httpx. Every public endpoint is standard library plus paybound.core,
+# which tests/arch/test_boundaries.py proves is free of network, clock,
+# environment and model -- so the public surface would still work if this file
+# were empty, and that is the point rather than an accident.
+httpx>=0.27
